@@ -23,7 +23,7 @@ DXEditor/
 ## Roadmap
 
 - [x] **Phase 0** — Project scaffold, repo setup
-- [ ] **Phase 1** — Single-user rich-text editor (Tiptap + toolbar)
+- [x] **Phase 1** — Single-user rich-text editor (Tiptap + toolbar)
 - [ ] **Phase 2** — Persistence (save/load documents via API + Postgres)
 - [ ] **Phase 3** — Real-time collaboration (Yjs + y-websocket)
 - [ ] **Phase 4** — Auth, document list, sharing & permissions
