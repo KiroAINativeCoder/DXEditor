@@ -14,7 +14,7 @@ import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import Toolbar from './Toolbar'
 import { api } from '../lib/api'
-import { makeIdentity } from '../lib/identity'
+import { makeIdentity, type Identity } from '../lib/identity'
 import './Editor.css'
 
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
@@ -28,50 +28,29 @@ type Props = {
   onTitleSaved: () => void
 }
 
+/**
+ * Outer component owns the Y.Doc + provider lifecycle and the title. It mounts
+ * the actual editor (CollabEditor) ONLY once the provider exists, so the Tiptap
+ * editor is always created with the Collaboration extension present from the
+ * start (swapping it in later throws / breaks history). Provider creation lives
+ * in an effect, not useMemo, so React StrictMode's dev double-mount can't hand
+ * back a provider we already destroyed.
+ */
 export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
-  // Recreate the Y.Doc + provider whenever the open document changes.
-  // The room name IS the document id, so each doc is an isolated room.
-  const { ydoc, provider, identity } = useMemo(() => {
-    const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider(COLLAB_URL, docId, ydoc, { connect: true })
-    return { ydoc, provider, identity: makeIdentity() }
-  }, [docId])
-
+  const identity = useMemo(makeIdentity, [])
+  const [conn, setConn] = useState<{ ydoc: Y.Doc; provider: WebsocketProvider } | null>(null)
   const [status, setStatus] = useState<Status>('connecting')
   const [peers, setPeers] = useState(1)
   const [title, setTitle] = useState(initialTitle)
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const editor = useEditor(
-    {
-      extensions: [
-        StarterKit.configure({ undoRedo: false }),
-        Placeholder.configure({ placeholder: 'Start writing…' }),
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Table.configure({ resizable: true }),
-        TableRow,
-        TableHeader,
-        TableCell,
-        Collaboration.configure({ document: ydoc }),
-        CollaborationCaret.configure({
-          provider,
-          user: { name: identity.name, color: identity.color },
-        }),
-      ],
-    },
-    [ydoc, provider],
-  )
-
-  useEffect(() => setTitle(initialTitle), [initialTitle, docId])
-
   useEffect(() => {
-    // Seed from the provider's live connection flag so a remount (React
-    // StrictMode double-mounts in dev) doesn't start stuck on a stale state.
+    const ydoc = new Y.Doc()
+    const provider = new WebsocketProvider(COLLAB_URL, docId, ydoc, { connect: true })
+    setConn({ ydoc, provider })
     setStatus(provider.wsconnected ? 'connected' : 'connecting')
 
     const onStatus = ({ status }: { status: string }) => {
-      // y-websocket emits 'connecting' | 'connected' | 'disconnected'.
       if (status === 'connected') setStatus('connected')
       else if (status === 'disconnected') setStatus('disconnected')
       else setStatus('connecting')
@@ -86,10 +65,12 @@ export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
       provider.awareness.off('change', onAwareness)
       provider.destroy()
       ydoc.destroy()
+      setConn(null)
     }
-  }, [provider, ydoc])
+  }, [docId])
 
-  // Debounced title persistence to SQLite (metadata store).
+  useEffect(() => setTitle(initialTitle), [initialTitle, docId])
+
   function onTitleChange(next: string) {
     setTitle(next)
     if (titleTimer.current) clearTimeout(titleTimer.current)
@@ -108,10 +89,13 @@ export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
         onChange={(e) => onTitleChange(e.target.value)}
         aria-label="Document title"
       />
-      <Toolbar editor={editor} />
-      <div className="editor-scroll">
-        <EditorContent editor={editor} className="editor-content" />
-      </div>
+      {conn ? (
+        <CollabEditor ydoc={conn.ydoc} provider={conn.provider} identity={identity} />
+      ) : (
+        <div className="editor-scroll">
+          <div className="editor-content" />
+        </div>
+      )}
       <div className="collab-status">
         <span className={`dot dot-${status}`} />
         {status === 'connected' && `Live · ${peers} ${peers === 1 ? 'person' : 'people'} here`}
@@ -119,5 +103,44 @@ export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
         {status === 'disconnected' && 'Disconnected — reconnecting…'}
       </div>
     </div>
+  )
+}
+
+/** Mounts once a live provider exists, so Collaboration is present at creation. */
+function CollabEditor({
+  ydoc,
+  provider,
+  identity,
+}: {
+  ydoc: Y.Doc
+  provider: WebsocketProvider
+  identity: Identity
+}) {
+  const editor = useEditor({
+    extensions: [
+      // Collaboration provides history/undo — disable StarterKit's.
+      StarterKit.configure({ undoRedo: false }),
+      Placeholder.configure({ placeholder: 'Start writing…' }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Collaboration.configure({ document: ydoc }),
+      CollaborationCaret.configure({
+        provider,
+        user: { name: identity.name, color: identity.color },
+      }),
+    ],
+  })
+
+  return (
+    <>
+      <Toolbar editor={editor} />
+      <div className="editor-scroll">
+        <EditorContent editor={editor} className="editor-content" />
+      </div>
+    </>
   )
 }
