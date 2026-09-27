@@ -9,10 +9,10 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 13px;
-  font-weight: 500;
-  color: #57606a;
-  padding: 10px 24px 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2328;
+  padding: 16px 24px 8px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -51,7 +51,7 @@
 .collab-status .dot-disconnected { background: #c23b3b; }
 
 /* Remote collaborator carets (CollaborationCaret) */
-.editor-content .collaboration-caret__caret {
+.editor-content .collaboration-carets__caret {
   border-left: 1px solid #0d0d0d;
   border-right: 1px solid #0d0d0d;
   margin-left: -1px;
@@ -60,14 +60,14 @@
   position: relative;
   word-break: normal;
 }
-.editor-content .collaboration-caret__label {
+.editor-content .collaboration-carets__label {
   border-radius: 3px 3px 3px 0;
   color: #fff;
   font-size: 11px;
   font-weight: 600;
   left: -1px;
   line-height: 1;
-  padding: 2px 5px;
+  padding: 1px 4px;
   position: absolute;
   top: -1.4em;
   user-select: none;
