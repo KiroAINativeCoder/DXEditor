@@ -32,11 +32,10 @@
 
 .brand-name { font-weight: 700; color: #1f2328; }
 
-.doc-title {
-  color: #57606a;
-  font-size: 14px;
-  border-left: 1px solid #e6e6e3;
-  padding-left: 14px;
+.app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 .phase-tag {
@@ -49,4 +48,20 @@
   padding: 3px 10px;
 }
 
-.app-main { flex: 1; min-height: 0; }
+.app-main { flex: 1; min-width: 0; }
+
+.app-placeholder {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: #8a8f96;
+  font-size: 15px;
+  text-align: center;
+  padding: 24px;
+}
+.app-error { color: #57606a; line-height: 1.9; }
+.app-placeholder code {
+  background: #f0f0ee;
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}

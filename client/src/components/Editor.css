@@ -5,6 +5,19 @@
   background: #f7f7f5;
 }
 
+.doc-title-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2328;
+  padding: 16px 24px 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.doc-title-input::placeholder { color: #c2c6cc; }
+
 .editor-scroll {
   flex: 1;
   overflow-y: auto;
