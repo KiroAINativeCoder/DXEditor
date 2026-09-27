@@ -1,0 +1,15 @@
+{
+  "name": "dxeditor",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A Quip-style collaborative document editor.",
+  "scripts": {
+    "dev": "concurrently --names \"api,collab,web\" --prefix-colors \"cyan,magenta,green\" \"npm --prefix server run dev\" \"npm --prefix server run collab\" \"npm --prefix client run dev\"",
+    "setup": "npm --prefix server install && npm --prefix client install && npm --prefix server exec prisma migrate deploy",
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "build": "npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

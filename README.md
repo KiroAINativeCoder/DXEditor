@@ -33,12 +33,31 @@ DXEditor/
 
 ## Development
 
-```bash
-# frontend
-cd client && npm install && npm run dev
+**One-time setup** (installs deps + creates the dev database):
 
-# backend
-cd server && npm install && npm run dev
+```bash
+cd DXEditor
+npm run install:all     # root + server + client deps
+npm --prefix server exec prisma migrate deploy   # create SQLite dev.db
+cp server/.env.example server/.env
+cp client/.env.example client/.env
+```
+
+**Run everything with one command** (API + collab relay + web client together):
+
+```bash
+npm run dev
+```
+
+That launches all three, prefixed `[api]` (:4000), `[collab]` (:4001), `[web]` (:5173).
+Open http://localhost:5173 — open it in two windows to see live collaboration.
+
+Prefer separate terminals? Run them individually:
+
+```bash
+npm --prefix server run dev      # REST API   :4000
+npm --prefix server run collab   # Yjs relay  :4001
+npm --prefix client run dev      # web client :5173
 ```
 
 ## License

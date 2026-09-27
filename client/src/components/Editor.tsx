@@ -66,13 +66,20 @@ export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
   useEffect(() => setTitle(initialTitle), [initialTitle, docId])
 
   useEffect(() => {
-    const onStatus = ({ status }: { status: string }) =>
-      setStatus(status === 'connected' ? 'connected' : 'connecting')
+    // Seed from the provider's live connection flag so a remount (React
+    // StrictMode double-mounts in dev) doesn't start stuck on a stale state.
+    setStatus(provider.wsconnected ? 'connected' : 'connecting')
+
+    const onStatus = ({ status }: { status: string }) => {
+      // y-websocket emits 'connecting' | 'connected' | 'disconnected'.
+      if (status === 'connected') setStatus('connected')
+      else if (status === 'disconnected') setStatus('disconnected')
+      else setStatus('connecting')
+    }
     const onAwareness = () => setPeers(provider.awareness.getStates().size || 1)
 
     provider.on('status', onStatus)
     provider.awareness.on('change', onAwareness)
-    provider.on('connection-close', () => setStatus('disconnected'))
 
     return () => {
       provider.off('status', onStatus)
