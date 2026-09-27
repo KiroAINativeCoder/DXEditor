@@ -1,0 +1,33 @@
+// Prisma schema for DXEditor
+// Dev uses SQLite (zero-setup). To switch to Postgres later:
+//   1. set provider = "postgresql"
+//   2. set DATABASE_URL to your Postgres connection string
+//   3. run `npx prisma migrate dev`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  createdAt DateTime   @default(now())
+  documents Document[]
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  title     String   @default("Untitled document")
+  // Tiptap document as JSON (ProseMirror doc). Stored as text on SQLite.
+  content   Json
+  owner     User?    @relation(fields: [ownerId], references: [id])
+  ownerId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

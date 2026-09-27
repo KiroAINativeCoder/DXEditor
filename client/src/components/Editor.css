@@ -11,6 +11,42 @@
   padding: 40px 16px 120px;
 }
 
+/* Save status pill (bottom-right) */
+.save-status {
+  position: fixed;
+  right: 18px;
+  bottom: 16px;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e6e6e3;
+  color: #57606a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: opacity 0.2s;
+}
+.save-status.save-idle { opacity: 0; }
+.save-status.save-saving { color: #8a7250; }
+.save-status.save-saved { color: #2f7d43; }
+.save-status.save-error { color: #c23b3b; border-color: #f0c9c9; }
+
+/* API-unreachable message */
+.editor-error {
+  max-width: 520px;
+  margin: 80px auto;
+  padding: 24px 28px;
+  background: #fff;
+  border: 1px solid #f0c9c9;
+  border-radius: 10px;
+  color: #57606a;
+  line-height: 1.9;
+}
+.editor-error code {
+  background: #f0f0ee;
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+
 /* The "page" the document sits on */
 .editor-content {
   max-width: 760px;
