@@ -80,9 +80,14 @@ npm run install:all
 npm --prefix server exec prisma migrate deploy
 
 # 3. Create env files from the examples
-cp server/.env.example server/.env
+cp server/.env.example server/.env    # set JWT_SECRET for real deployments
 cp client/.env.example client/.env
 ```
+
+On first run, **sign up** with an email + password. Documents are private to their
+owner; use the **Share** button (owner only) to grant another registered user
+**Can edit** or **Can view** access by email. Roles are enforced on both the REST
+API and the collaboration WebSocket (a viewer's edits are rejected server-side).
 
 ## Run
 
@@ -147,7 +152,7 @@ npm --prefix server run test:concurrent 5 10      # 5 editors, 10 edits each
 - [x] **Phase 2** — Persistence (documents via REST API + Prisma)
 - [x] **Phase 3** — Real-time collaboration (Yjs + WebSocket relay + presence)
 - [x] **Phase 4a** — Document management (list, create, rename, delete; per-doc rooms)
-- [ ] **Phase 4b** — Auth, sharing & permissions
+- [x] **Phase 4b** — Auth (email/password + JWT cookie), sharing by email, viewer/editor roles enforced on REST + WebSocket
 - [ ] **Phase 5** — Comments
 - [ ] **Phase 6** — Folders, slash commands, export, full-text search, deploy
 

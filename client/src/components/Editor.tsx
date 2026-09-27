@@ -13,7 +13,7 @@ import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import Toolbar from './Toolbar'
-import { api } from '../lib/api'
+import { api, type Role } from '../lib/api'
 import { makeIdentity, type Identity } from '../lib/identity'
 import './Editor.css'
 
@@ -24,6 +24,7 @@ type Status = 'connecting' | 'connected' | 'disconnected'
 type Props = {
   docId: string
   initialTitle: string
+  role: Role
   /** Called after the title is persisted, so the sidebar can refresh. */
   onTitleSaved: () => void
 }
@@ -36,35 +37,56 @@ type Props = {
  * in an effect, not useMemo, so React StrictMode's dev double-mount can't hand
  * back a provider we already destroyed.
  */
-export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
+export default function Editor({ docId, initialTitle, role, onTitleSaved }: Props) {
   const identity = useMemo(makeIdentity, [])
   const [conn, setConn] = useState<{ ydoc: Y.Doc; provider: WebsocketProvider } | null>(null)
   const [status, setStatus] = useState<Status>('connecting')
   const [peers, setPeers] = useState(1)
   const [title, setTitle] = useState(initialTitle)
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const canEdit = role === 'OWNER' || role === 'EDITOR'
 
   useEffect(() => {
-    const ydoc = new Y.Doc()
-    const provider = new WebsocketProvider(COLLAB_URL, docId, ydoc, { connect: true })
-    setConn({ ydoc, provider })
-    setStatus(provider.wsconnected ? 'connected' : 'connecting')
+    let provider: WebsocketProvider | null = null
+    let ydoc: Y.Doc | null = null
+    let cancelled = false
 
-    const onStatus = ({ status }: { status: string }) => {
+    // Fetch a short-lived WS token (the session cookie is httpOnly), then
+    // connect passing it as a query param the relay authenticates.
+    api
+      .wsToken()
+      .then(({ token }) => {
+        if (cancelled) return
+        ydoc = new Y.Doc()
+        provider = new WebsocketProvider(COLLAB_URL, docId, ydoc, {
+          connect: true,
+          params: { token },
+        })
+        setConn({ ydoc, provider })
+        setStatus(provider.wsconnected ? 'connected' : 'connecting')
+
+        provider.on('status', onStatus)
+        provider.awareness.on('change', onAwareness)
+      })
+      .catch(() => setStatus('disconnected'))
+
+    function onStatus({ status }: { status: string }) {
       if (status === 'connected') setStatus('connected')
       else if (status === 'disconnected') setStatus('disconnected')
       else setStatus('connecting')
     }
-    const onAwareness = () => setPeers(provider.awareness.getStates().size || 1)
-
-    provider.on('status', onStatus)
-    provider.awareness.on('change', onAwareness)
+    function onAwareness() {
+      setPeers(provider?.awareness.getStates().size || 1)
+    }
 
     return () => {
-      provider.off('status', onStatus)
-      provider.awareness.off('change', onAwareness)
-      provider.destroy()
-      ydoc.destroy()
+      cancelled = true
+      if (provider) {
+        provider.off('status', onStatus)
+        provider.awareness.off('change', onAwareness)
+        provider.destroy()
+      }
+      ydoc?.destroy()
       setConn(null)
     }
   }, [docId])
@@ -72,10 +94,11 @@ export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
   useEffect(() => setTitle(initialTitle), [initialTitle, docId])
 
   function onTitleChange(next: string) {
+    if (!canEdit) return
     setTitle(next)
     if (titleTimer.current) clearTimeout(titleTimer.current)
     titleTimer.current = setTimeout(async () => {
-      await api.update(docId, { title: next || 'Untitled document' })
+      await api.updateTitle(docId, next || 'Untitled document')
       onTitleSaved()
     }, 500)
   }
@@ -87,10 +110,16 @@ export default function Editor({ docId, initialTitle, onTitleSaved }: Props) {
         value={title}
         placeholder="Untitled document"
         onChange={(e) => onTitleChange(e.target.value)}
+        readOnly={!canEdit}
         aria-label="Document title"
       />
       {conn ? (
-        <CollabEditor ydoc={conn.ydoc} provider={conn.provider} identity={identity} />
+        <CollabEditor
+          ydoc={conn.ydoc}
+          provider={conn.provider}
+          identity={identity}
+          editable={canEdit}
+        />
       ) : (
         <div className="editor-scroll">
           <div className="editor-content" />
@@ -111,12 +140,15 @@ function CollabEditor({
   ydoc,
   provider,
   identity,
+  editable,
 }: {
   ydoc: Y.Doc
   provider: WebsocketProvider
   identity: Identity
+  editable: boolean
 }) {
   const editor = useEditor({
+    editable,
     extensions: [
       // Collaboration provides history/undo — disable StarterKit's.
       StarterKit.configure({ undoRedo: false }),
@@ -137,7 +169,7 @@ function CollabEditor({
 
   return (
     <>
-      <Toolbar editor={editor} />
+      {editable && <Toolbar editor={editor} />}
       <div className="editor-scroll">
         <EditorContent editor={editor} className="editor-content" />
       </div>

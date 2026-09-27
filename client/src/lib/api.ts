@@ -1,42 +1,72 @@
-import type { JSONContent } from '@tiptap/react'
-
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+
+export type User = { id: string; email: string; name: string | null }
 
 export type DocMeta = {
   id: string
   title: string
+  ownerId: string
+  isOwner: boolean
   createdAt: string
   updatedAt: string
 }
 
-export type Doc = DocMeta & { content: JSONContent }
+export type Role = 'OWNER' | 'EDITOR' | 'VIEWER'
+export type DocDetail = DocMeta & { role: Role }
+export type Share = { id: string; role: 'EDITOR' | 'VIEWER'; user: User }
 
 async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-  return res.json() as Promise<T>
+  if (!res.ok) {
+    let msg = `${res.status}`
+    try {
+      msg = (await res.json()).error ?? msg
+    } catch {
+      /* noop */
+    }
+    throw new ApiError(res.status, msg)
+  }
+  return (res.status === 204 ? undefined : res.json()) as Promise<T>
 }
 
+export class ApiError extends Error {
+  status: number
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+const opts = (method: string, body?: unknown): RequestInit => ({
+  method,
+  credentials: 'include', // send/receive the session cookie
+  headers: body ? { 'Content-Type': 'application/json' } : undefined,
+  body: body ? JSON.stringify(body) : undefined,
+})
+
 export const api = {
-  list: () => fetch(`${BASE}/api/documents`).then(json<DocMeta[]>),
+  // --- auth ---
+  register: (email: string, password: string, name?: string) =>
+    fetch(`${BASE}/api/auth/register`, opts('POST', { email, password, name })).then(json<User>),
+  login: (email: string, password: string) =>
+    fetch(`${BASE}/api/auth/login`, opts('POST', { email, password })).then(json<User>),
+  logout: () => fetch(`${BASE}/api/auth/logout`, opts('POST')).then(json<void>),
+  me: () => fetch(`${BASE}/api/auth/me`, opts('GET')).then(json<User>),
+  wsToken: () => fetch(`${BASE}/api/auth/ws-token`, opts('GET')).then(json<{ token: string }>),
 
-  get: (id: string) => fetch(`${BASE}/api/documents/${id}`).then(json<Doc>),
+  // --- documents ---
+  list: () => fetch(`${BASE}/api/documents`, opts('GET')).then(json<DocMeta[]>),
+  get: (id: string) => fetch(`${BASE}/api/documents/${id}`, opts('GET')).then(json<DocDetail>),
+  create: (title?: string) =>
+    fetch(`${BASE}/api/documents`, opts('POST', { title })).then(json<DocDetail>),
+  updateTitle: (id: string, title: string) =>
+    fetch(`${BASE}/api/documents/${id}`, opts('PUT', { title })).then(json<DocMeta>),
+  remove: (id: string) => fetch(`${BASE}/api/documents/${id}`, opts('DELETE')).then(json<void>),
 
-  create: (title?: string, content?: JSONContent) =>
-    fetch(`${BASE}/api/documents`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, content }),
-    }).then(json<Doc>),
-
-  update: (id: string, patch: { title?: string; content?: JSONContent }) =>
-    fetch(`${BASE}/api/documents/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch),
-    }).then(json<Doc>),
-
-  remove: (id: string) =>
-    fetch(`${BASE}/api/documents/${id}`, { method: 'DELETE' }).then((r) => {
-      if (!r.ok) throw new Error(`${r.status}`)
-    }),
+  // --- sharing ---
+  listShares: (id: string) =>
+    fetch(`${BASE}/api/documents/${id}/shares`, opts('GET')).then(json<Share[]>),
+  addShare: (id: string, email: string, role: 'EDITOR' | 'VIEWER') =>
+    fetch(`${BASE}/api/documents/${id}/shares`, opts('POST', { email, role })).then(json<Share>),
+  removeShare: (id: string, userId: string) =>
+    fetch(`${BASE}/api/documents/${id}/shares/${userId}`, opts('DELETE')).then(json<void>),
 }

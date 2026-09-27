@@ -1,35 +1,54 @@
 import { useEffect, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Editor from './components/Editor'
-import { api, type DocMeta } from './lib/api'
+import Auth from './components/Auth'
+import ShareDialog from './components/ShareDialog'
+import { api, type User, type DocDetail } from './lib/api'
 import './App.css'
 
 export default function App() {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [meta, setMeta] = useState<DocMeta | null>(null)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const [apiDown, setApiDown] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
 
-  // Load the selected doc's metadata (for the title) whenever selection changes.
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<DocDetail | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [sharing, setSharing] = useState(false)
+
+  // On load, check for an existing session.
   useEffect(() => {
-    if (!selectedId) {
-      setMeta(null)
+    api
+      .me()
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setAuthChecked(true))
+  }, [])
+
+  // Load the selected doc's detail (title + role) when selection changes.
+  useEffect(() => {
+    if (!selectedId || !user) {
+      setDetail(null)
       return
     }
     let cancelled = false
     api
       .get(selectedId)
-      .then((d) => {
-        if (!cancelled) {
-          setMeta(d)
-          setApiDown(false)
-        }
-      })
-      .catch(() => !cancelled && setApiDown(true))
+      .then((d) => !cancelled && setDetail(d))
+      .catch(() => !cancelled && setSelectedId(null))
     return () => {
       cancelled = true
     }
-  }, [selectedId, refreshKey])
+  }, [selectedId, user, refreshKey])
+
+  async function logout() {
+    await api.logout().catch(() => undefined)
+    setUser(null)
+    setSelectedId(null)
+    setDetail(null)
+  }
+
+  if (!authChecked) return <div className="app-boot">Loading…</div>
+  if (!user) return <Auth onAuthed={setUser} />
 
   return (
     <div className="app">
@@ -38,7 +57,16 @@ export default function App() {
           <span className="brand-mark">DX</span>
           <span className="brand-name">DXEditor</span>
         </div>
-        <span className="phase-tag">Phase 4 · documents</span>
+        {detail && detail.role === 'OWNER' && (
+          <button className="header-btn" onClick={() => setSharing(true)}>Share</button>
+        )}
+        {detail && detail.role !== 'OWNER' && (
+          <span className="role-badge">{detail.role === 'EDITOR' ? 'Shared · can edit' : 'Shared · view only'}</span>
+        )}
+        <div className="header-user">
+          <span className="user-email">{user.name || user.email}</span>
+          <button className="header-btn ghost" onClick={logout}>Log out</button>
+        </div>
       </header>
       <div className="app-body">
         <Sidebar
@@ -47,27 +75,22 @@ export default function App() {
           refreshKey={refreshKey}
         />
         <main className="app-main">
-          {apiDown ? (
-            <div className="app-placeholder app-error">
-              Could not reach the API at{' '}
-              <code>{import.meta.env.VITE_API_URL ?? 'http://localhost:4000'}</code>.
-              <br />
-              Start it: <code>cd server &amp;&amp; npm run dev</code>
-            </div>
-          ) : selectedId && meta ? (
+          {selectedId && detail ? (
             <Editor
               key={selectedId}
               docId={selectedId}
-              initialTitle={meta.title}
+              initialTitle={detail.title}
+              role={detail.role}
               onTitleSaved={() => setRefreshKey((k) => k + 1)}
             />
           ) : (
-            <div className="app-placeholder">
-              Select a document, or create one from the sidebar.
-            </div>
+            <div className="app-placeholder">Select a document, or create one from the sidebar.</div>
           )}
         </main>
       </div>
+      {sharing && selectedId && (
+        <ShareDialog docId={selectedId} onClose={() => setSharing(false)} />
+      )}
     </div>
   )
 }

@@ -50,6 +50,46 @@
 
 .app-main { flex: 1; min-width: 0; }
 
+.header-btn {
+  border: 1px solid #e6e6e3;
+  background: #fff;
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a3f45;
+  cursor: pointer;
+  margin-left: auto;
+}
+.header-btn:hover { background: #f0efec; }
+.header-btn.ghost { border-color: transparent; color: #8a8f96; margin-left: 0; }
+.header-btn.ghost:hover { color: #c23b3b; background: transparent; }
+
+.role-badge {
+  margin-left: auto;
+  font-size: 12px;
+  color: #57606a;
+  background: #f0efec;
+  border-radius: 999px;
+  padding: 4px 11px;
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+}
+.user-email { font-size: 13px; color: #57606a; }
+
+.app-boot {
+  height: 100vh;
+  display: grid;
+  place-items: center;
+  color: #8a8f96;
+  font-size: 15px;
+}
+
 .app-placeholder {
   display: grid;
   place-items: center;

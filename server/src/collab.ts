@@ -6,6 +6,8 @@ import * as awarenessProtocol from 'y-protocols/awareness'
 import * as encoding from 'lib0/encoding'
 import * as decoding from 'lib0/decoding'
 import { LeveldbPersistence } from 'y-leveldb'
+import { verifyToken } from './auth.js'
+import { getAccess, canEdit } from './access.js'
 
 /**
  * Self-contained Yjs collaboration relay (yjs 13 line).
@@ -88,19 +90,32 @@ function getRoom(name: string): Room {
   return room
 }
 
-function handleMessage(room: Room, conn: WebSocket, data: Uint8Array) {
+const SYNC_STEP1 = 0
+const SYNC_STEP2 = 1
+const SYNC_UPDATE = 2
+
+function handleMessage(room: Room, conn: WebSocket, data: Uint8Array, canWrite: boolean) {
   const dec = decoding.createDecoder(data)
   const channel = decoding.readVarUint(dec)
 
   if (channel === MESSAGE_SYNC) {
+    // Peek the sync subtype. A read-only (viewer) client may still complete
+    // the handshake (step1/step2 — it needs to RECEIVE the doc) but its own
+    // document writes (step2 replies carrying data, and update messages) are
+    // dropped so it cannot mutate the shared doc.
+    const syncType = decoding.readVarUint(dec)
+    if (!canWrite && (syncType === SYNC_UPDATE || syncType === SYNC_STEP2)) {
+      return // silently ignore a viewer's attempted write
+    }
+    // Re-decode from the start so readSyncMessage sees the full sync frame.
+    const full = decoding.createDecoder(data)
+    decoding.readVarUint(full) // consume the channel byte
     const enc = encoding.createEncoder()
     encoding.writeVarUint(enc, MESSAGE_SYNC)
-    // Applies incoming updates to room.doc (firing the doc 'update' handler
-    // that persists + broadcasts) and writes any reply (e.g. the syncStep2
-    // answer to a syncStep1) into enc.
-    syncProtocol.readSyncMessage(dec, enc, room.doc, conn)
+    syncProtocol.readSyncMessage(full, enc, room.doc, conn)
     if (encoding.length(enc) > 1) conn.send(encoding.toUint8Array(enc))
   } else if (channel === MESSAGE_AWARENESS) {
+    // Presence is allowed for everyone (viewers show a cursor too).
     awarenessProtocol.applyAwarenessUpdate(
       room.awareness,
       decoding.readVarUint8Array(dec),
@@ -116,8 +131,25 @@ const server = http.createServer((_req, res) => {
 
 const wss = new WebSocketServer({ server })
 
-wss.on('connection', (conn: WebSocket, req) => {
-  const docName = (req.url ?? '/').slice(1).split('?')[0] || 'default'
+wss.on('connection', async (conn: WebSocket, req) => {
+  const url = new URL(req.url ?? '/', 'http://localhost')
+  const docName = url.pathname.slice(1) || 'default'
+  const token = url.searchParams.get('token') ?? ''
+
+  // Authenticate: valid session token required.
+  const session = verifyToken(token)
+  if (!session) {
+    conn.close(4001, 'unauthenticated')
+    return
+  }
+  // Authorize: the user must own or be a member of this document.
+  const access = await getAccess(session.id, docName)
+  if (!access) {
+    conn.close(4003, 'forbidden')
+    return
+  }
+  const canWrite = canEdit(access)
+
   const room = getRoom(docName)
   conn.binaryType = 'arraybuffer'
   room.conns.add(conn)
@@ -127,7 +159,7 @@ wss.on('connection', (conn: WebSocket, req) => {
   let ready = false
   conn.on('message', (data: ArrayBuffer) => {
     const bytes = new Uint8Array(data)
-    if (ready) handleMessage(room, conn, bytes)
+    if (ready) handleMessage(room, conn, bytes, canWrite)
     else queue.push(bytes)
   })
 
@@ -166,7 +198,7 @@ wss.on('connection', (conn: WebSocket, req) => {
 
     // Drain anything that arrived during load, then go live.
     ready = true
-    for (const bytes of queue) handleMessage(room, conn, bytes)
+    for (const bytes of queue) handleMessage(room, conn, bytes, canWrite)
     queue.length = 0
   })
 })
