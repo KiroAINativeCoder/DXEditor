@@ -10,7 +10,7 @@ export default function App() {
           <span className="brand-name">DXEditor</span>
         </div>
         <span className="doc-title">Untitled document</span>
-        <span className="phase-tag">Phase 2 · persisted</span>
+        <span className="phase-tag">Phase 3 · live collab</span>
       </header>
       <main className="app-main">
         <Editor />

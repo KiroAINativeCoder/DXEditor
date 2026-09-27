@@ -25,7 +25,7 @@ DXEditor/
 - [x] **Phase 0** — Project scaffold, repo setup
 - [x] **Phase 1** — Single-user rich-text editor (Tiptap + toolbar)
 - [x] **Phase 2** — Persistence (save/load documents via API + Prisma)
-- [ ] **Phase 3** — Real-time collaboration (Yjs + y-websocket)
+- [x] **Phase 3** — Real-time collaboration (Yjs + WebSocket relay)
 - [ ] **Phase 4** — Auth, document list, sharing & permissions
 - [ ] **Phase 5** — Presence cursors + comments
 - [ ] **Phase 6** — Folders, slash commands, export, search, deploy

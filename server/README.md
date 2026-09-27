@@ -8,8 +8,11 @@ Node + Express API with Prisma persistence for DXEditor.
 npm install
 cp .env.example .env        # SQLite dev DB by default
 npx prisma migrate dev      # create the DB + tables
-npm run dev                 # http://localhost:4000
+npm run dev                 # REST API   → http://localhost:4000
+npm run collab              # Yjs relay   → ws://localhost:4001
 ```
+
+Run the API (`dev`) and the collaboration relay (`collab`) in two terminals.
 
 ## Database
 
@@ -31,3 +34,13 @@ Dev uses **SQLite** (`file:./dev.db`, zero setup). To use Postgres:
 | DELETE | `/api/documents/:id` | Delete |
 
 `content` is the Tiptap/ProseMirror document JSON (`editor.getJSON()`).
+
+## Collaboration relay (`src/collab.ts`)
+
+A self-contained Yjs WebSocket relay (`npm run collab`, port 4001). Each URL
+path is one shared room (`ws://host:4001/<docId>`); clients exchange two
+channels — sync (`y-protocols/sync`) and awareness (presence). Room state is
+persisted to LevelDB (`y-leveldb`, gitignored `y-leveldb/` dir) so documents
+survive restarts. Frames are queued until a room's persisted state loads, so a
+client's opening handshake is never dropped during the async load.
+
