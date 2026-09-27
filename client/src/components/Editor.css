@@ -9,10 +9,10 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1f2328;
-  padding: 12px 24px 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #57606a;
+  padding: 10px 24px 4px;
   width: 100%;
   box-sizing: border-box;
 }
