@@ -3,7 +3,7 @@ import Sidebar from './components/Sidebar'
 import Editor from './components/Editor'
 import Auth from './components/Auth'
 import ShareDialog from './components/ShareDialog'
-import { api, type User, type DocDetail } from './lib/api'
+import { auth, docs, type User, type DocDetail } from './lib/api'
 import './App.css'
 
 export default function App() {
@@ -17,8 +17,8 @@ export default function App() {
 
   // On load, check for an existing session.
   useEffect(() => {
-    api
-      .me()
+    auth
+      .current()
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setAuthChecked(true))
@@ -31,7 +31,7 @@ export default function App() {
       return
     }
     let cancelled = false
-    api
+    docs
       .get(selectedId)
       .then((d) => !cancelled && setDetail(d))
       .catch(() => !cancelled && setSelectedId(null))
@@ -41,11 +41,19 @@ export default function App() {
   }, [selectedId, user, refreshKey])
 
   async function logout() {
-    await api.logout().catch(() => undefined)
+    await auth.signOut().catch(() => undefined)
     setUser(null)
     setSelectedId(null)
     setDetail(null)
   }
+
+  const canShare = detail && (detail.role === 'OWNER' || detail.role === 'MANAGER')
+  const roleLabel =
+    detail?.role === 'MANAGER'
+      ? 'Shared · can manage'
+      : detail?.role === 'EDITOR'
+        ? 'Shared · can edit'
+        : 'Shared · view only'
 
   if (!authChecked) return <div className="app-boot">Loading…</div>
   if (!user) return <Auth onAuthed={setUser} />
@@ -57,11 +65,11 @@ export default function App() {
           <span className="brand-mark">DX</span>
           <span className="brand-name">DXEditor</span>
         </div>
-        {detail && detail.role === 'OWNER' && (
+        {canShare && (
           <button className="header-btn" onClick={() => setSharing(true)}>Share</button>
         )}
         {detail && detail.role !== 'OWNER' && (
-          <span className="role-badge">{detail.role === 'EDITOR' ? 'Shared · can edit' : 'Shared · view only'}</span>
+          <span className="role-badge">{roleLabel}</span>
         )}
         <div className="header-user">
           <span className="user-email">{user.name || user.email}</span>
@@ -89,8 +97,8 @@ export default function App() {
           )}
         </main>
       </div>
-      {sharing && selectedId && (
-        <ShareDialog docId={selectedId} onClose={() => setSharing(false)} />
+      {sharing && selectedId && detail && (
+        <ShareDialog docId={selectedId} isOwner={detail.role === 'OWNER'} onClose={() => setSharing(false)} />
       )}
     </div>
   )

@@ -15,7 +15,8 @@ import { WebsocketProvider } from 'y-websocket'
 import Toolbar from './Toolbar'
 import CommentsPanel from './CommentsPanel'
 import { CommentMark } from './CommentMark'
-import { api, type Role } from '../lib/api'
+import { docs, comments, type Role } from '../lib/api'
+import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import './Editor.css'
 
@@ -50,10 +51,12 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
     let ydoc: Y.Doc | null = null
     let cancelled = false
 
-    api
-      .wsToken()
-      .then(({ token }) => {
-        if (cancelled) return
+    accessToken()
+      .then((token) => {
+        if (cancelled || !token) {
+          if (!token) setStatus('disconnected')
+          return
+        }
         ydoc = new Y.Doc()
         provider = new WebsocketProvider(COLLAB_URL, docId, ydoc, {
           connect: true,
@@ -94,7 +97,7 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
     setTitle(next)
     if (titleTimer.current) clearTimeout(titleTimer.current)
     titleTimer.current = setTimeout(async () => {
-      await api.updateTitle(docId, next || 'Untitled document')
+      await docs.updateTitle(docId, next || 'Untitled document')
       onTitleSaved()
     }, 500)
   }
@@ -232,7 +235,7 @@ function CollabEditor({
 
     // Create the thread server-side first to get a stable id, then anchor the
     // mark to that id so the DB row and the highlighted span share one key.
-    const created = await api.addComment(docId, text.trim(), { quote })
+    const created = await comments.add(docId, text.trim(), { quote })
     editor.chain().focus().setComment(created.id).run()
     setBubble(null)
     onThreadCreated()

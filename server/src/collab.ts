@@ -1,3 +1,4 @@
+import './env.js'
 import http from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import * as Y from 'yjs'
@@ -137,7 +138,7 @@ wss.on('connection', async (conn: WebSocket, req) => {
   const token = url.searchParams.get('token') ?? ''
 
   // Authenticate: valid session token required.
-  const session = verifyToken(token)
+  const session = await verifyToken(token)
   if (!session) {
     conn.close(4001, 'unauthenticated')
     return

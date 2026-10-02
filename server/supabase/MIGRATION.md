@@ -41,20 +41,21 @@ different table), so ownership stays the un-forgeable, recursion-free root.
 
 Done:
 - `server/supabase/schema.sql` — full DDL + helpers + RLS (incl. MANAGER caps)
-- `server/src/auth.ts` — verifies Supabase JWTs (Bearer)
+- `server/src/auth.ts` — verifies Supabase asymmetric JWTs via remote JWKS
 - `server/src/access.ts` — relay access check via service role (incl. MANAGER)
 - `server/src/server.ts` — slimmed: health, `/api/auth/sync`, `/api/auth/ws-token`
+- `server/src/env.ts` — loads `.env` (dotenv) before Supabase clients init
 - `client/src/lib/supabase.ts` — browser Supabase client
 - `client/src/lib/api.ts` — data layer rewritten to query Supabase under RLS
+- **All client components migrated** to the new API (`auth`/`docs`/`shares`/
+  `comments`) + snake_case fields + MANAGER role. **Client builds clean.**
+- ShareDialog offers "Can manage" (MANAGER) to owners; the relay reads the
+  Supabase access token from the WS `?token=` param.
 
-## Remaining (not yet done)
+## Remaining
 
-- **Client components** still call the OLD `api.*` shape and camelCase fields;
-  they must be updated to the new grouped API (`auth`/`docs`/`shares`/
-  `comments`) and snake_case Postgres fields: `App.tsx`, `Auth.tsx`,
-  `Sidebar.tsx`, `ShareDialog.tsx`, `CommentsPanel.tsx`, `Editor.tsx`.
-  **The client does not build until this is done.**
-- Wire the ShareDialog to offer the **MANAGER** ("Can manage") role for owners.
-- Relay: have the client pass its Supabase access token as the `?token=` param.
-- End-to-end test against a real project (unblocked once keys exist).
+- **Disable email confirmation** in Supabase → Authentication → Providers →
+  Email (the project has no SMTP), so signup returns a session for testing.
+- End-to-end verification against the live project (owner/editor/viewer/manager
+  flows, RLS enforcement, collab).
 - Retire Prisma/SQLite (`server/prisma`, `server/src/db.ts`) once verified.

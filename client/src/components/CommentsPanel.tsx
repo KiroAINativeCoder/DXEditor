@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type Thread } from '../lib/api'
+import { comments as commentsApi, type Thread } from '../lib/api'
 import './CommentsPanel.css'
 
 type Props = {
@@ -32,7 +32,7 @@ export default function CommentsPanel({
   const [showResolved, setShowResolved] = useState(false)
 
   async function load() {
-    setThreads(await api.listComments(docId))
+    setThreads(await commentsApi.list(docId))
   }
   useEffect(() => {
     load()
@@ -41,19 +41,19 @@ export default function CommentsPanel({
 
   async function reply(threadId: string) {
     if (!replyText.trim()) return
-    await api.addComment(docId, replyText, { parentId: threadId })
+    await commentsApi.add(docId, replyText, { parentId: threadId })
     setReplyText('')
     setReplyFor(null)
     await load()
   }
 
   async function toggleResolved(t: Thread) {
-    await api.setResolved(docId, t.id, !t.resolved)
+    await commentsApi.setResolved(docId, t.id, !t.resolved)
     await load()
   }
 
   async function remove(commentId: string) {
-    await api.removeComment(docId, commentId)
+    await commentsApi.remove(docId, commentId)
     await load()
   }
 
@@ -83,16 +83,16 @@ export default function CommentsPanel({
       <ul className="thread-list">
         {visible.map((t) => (
           <li key={t.id} className={`thread${t.resolved ? ' is-resolved' : ''}`}>
-            <button className="thread-anchor" onClick={() => onFocusAnchor(t.anchorId)}>
+            <button className="thread-anchor" onClick={() => onFocusAnchor(t.anchor_id)}>
               {t.quote ? `“${t.quote}”` : 'Comment'}
             </button>
 
-            <Entry name={t.author.name || t.author.email} when={when(t.createdAt)} body={t.body}
+            <Entry name={t.author.name || t.author.email} when={when(t.created_at)} body={t.body}
               canDelete={canEdit && (t.author.id === currentUserId)}
               onDelete={() => remove(t.id)} />
 
             {t.replies.map((r) => (
-              <Entry key={r.id} reply name={r.author.name || r.author.email} when={when(r.createdAt)}
+              <Entry key={r.id} reply name={r.author.name || r.author.email} when={when(r.created_at)}
                 body={r.body}
                 canDelete={canEdit && (r.author.id === currentUserId)}
                 onDelete={() => remove(r.id)} />

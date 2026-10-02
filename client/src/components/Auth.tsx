@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, ApiError, type User } from '../lib/api'
+import { auth, ApiError, type User } from '../lib/api'
 import './Auth.css'
 
 export default function Auth({ onAuthed }: { onAuthed: (u: User) => void }) {
@@ -15,11 +15,11 @@ export default function Auth({ onAuthed }: { onAuthed: (u: User) => void }) {
     setBusy(true)
     setError(null)
     try {
-      const user =
-        mode === 'login'
-          ? await api.login(email, password)
-          : await api.register(email, password, name || undefined)
-      onAuthed(user)
+      if (mode === 'login') await auth.signIn(email, password)
+      else await auth.signUp(email, password, name || undefined)
+      const user = await auth.current()
+      if (!user) throw new ApiError(401, 'Login did not establish a session (check email confirmation).')
+      onAuthed({ ...user, name: name || user.name })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     } finally {
