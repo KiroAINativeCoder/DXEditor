@@ -165,15 +165,20 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
         }
         return true
       })
+      // CRITICAL: if the doc has no text yet (e.g. the Yjs content hasn't synced
+      // on load), do NOT touch the title. Deriving here would persist
+      // "Untitled document" over the real stored title before sync completes —
+      // which is exactly the "title resets to Untitled after refresh" bug.
+      if (!firstLine) return
       // First sentence: cut at . ? ! (keeping it), else cap length.
       let next = firstLine
       const m = firstLine.match(/^.*?[.?!](\s|$)/)
       if (m) next = m[0].trim()
       next = next.slice(0, 120).trim()
-      const derived = next || 'Untitled document'
-      if (derived !== title) onTitleChange(derived)
+      if (next && next !== title) onTitleChange(next)
     }
-    derive()
+    // Do NOT derive immediately on mount — the Yjs doc may still be empty before
+    // sync. Only react to real content changes (sync + typing).
     ed.on('update', derive)
     return () => {
       ed.off('update', derive)
