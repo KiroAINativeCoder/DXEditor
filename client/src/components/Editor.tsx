@@ -16,7 +16,7 @@ import Toolbar from './Toolbar'
 import CommentsPanel from './CommentsPanel'
 import Menu from './Menu'
 import { CommentMark } from './CommentMark'
-import { docs, comments, type Role } from '../lib/api'
+import { docs, comments, type Role, type Thread as ThreadT } from '../lib/api'
 import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import './Editor.css'
@@ -313,6 +313,43 @@ function CollabEditor({
     }
   }, [focusAnchor])
 
+  // Clicking commented text opens a small popover showing that thread.
+  const [popover, setPopover] = useState<
+    { top: number; left: number; thread: ThreadT | null } | null
+  >(null)
+
+  useEffect(() => {
+    const scroll = document.querySelector('.editor-scroll')
+    if (!scroll) return
+    const onClick = async (e: Event) => {
+      const target = e.target as HTMLElement
+      const mark = target.closest<HTMLElement>('[data-comment-id]')
+      if (!mark) {
+        setPopover(null)
+        return
+      }
+      const commentId = mark.getAttribute('data-comment-id')!
+      const rect = mark.getBoundingClientRect()
+      const scrollRect = scroll.getBoundingClientRect()
+      // Position just below the clicked mark, relative to the scroll container.
+      setPopover({
+        top: rect.bottom - scrollRect.top + scroll.scrollTop + 6,
+        left: rect.left - scrollRect.left + scroll.scrollLeft,
+        thread: null,
+      })
+      // Load the thread (root comment with that id) + its replies.
+      try {
+        const threads = await comments.list(docId)
+        const t = threads.find((x) => x.id === commentId) ?? null
+        setPopover((p) => (p ? { ...p, thread: t } : p))
+      } catch {
+        /* ignore */
+      }
+    }
+    scroll.addEventListener('click', onClick)
+    return () => scroll.removeEventListener('click', onClick)
+  }, [docId])
+
   const addComment = useCallback(async () => {
     if (!editor) return
     const { from, to } = editor.state.selection
@@ -343,6 +380,36 @@ function CollabEditor({
       )}
       {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} className={`editor-content font-${font}`} />
+
+      {popover && (
+        <div
+          className="comment-popover"
+          style={{ top: popover.top, left: popover.left }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button className="comment-popover-close" onClick={() => setPopover(null)} aria-label="Close">
+            ✕
+          </button>
+          {!popover.thread ? (
+            <div className="comment-popover-empty">Loading…</div>
+          ) : (
+            <>
+              <div className="comment-popover-entry">
+                <span className="cp-author">
+                  {popover.thread.author.name || popover.thread.author.email}
+                </span>
+                <div className="cp-body">{popover.thread.body}</div>
+              </div>
+              {popover.thread.replies.map((r) => (
+                <div key={r.id} className="comment-popover-entry cp-reply">
+                  <span className="cp-author">{r.author.name || r.author.email}</span>
+                  <div className="cp-body">{r.body}</div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -205,8 +205,12 @@ export const shares = {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     })
     if (res.status === 404) throw new ApiError(404, 'No user with that email')
-    if (!res.ok) throw new ApiError(res.status, 'Could not look up that user')
+    if (!res.ok) throw new ApiError(res.status, `Lookup failed (${res.status})`)
     const target = (await res.json()) as { id: string }
+
+    // Can't share a doc with yourself (you already own or have access to it).
+    const me = await myId()
+    if (target.id === me) throw new ApiError(400, 'You already have access to this document')
 
     const { error } = await supabase
       .from('membership')
@@ -214,7 +218,8 @@ export const shares = {
         { document_id: docId, user_id: target.id, role },
         { onConflict: 'document_id,user_id' },
       )
-    if (error) throw new ApiError(403, error.message)
+    // Surface the real Postgres/RLS message instead of a generic failure.
+    if (error) throw new ApiError(403, error.message || 'Share was rejected')
   },
 
   remove: async (docId: string, userId: string) => {

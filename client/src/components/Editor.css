@@ -136,6 +136,39 @@
   transition: background 0.3s;
 }
 
+/* Popover shown when clicking commented text */
+.comment-popover {
+  position: absolute;
+  z-index: 30;
+  max-width: 300px;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #e6e6e3;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  padding: 12px 14px 10px;
+}
+.comment-popover-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: none;
+  color: #adb5bd;
+  cursor: pointer;
+  font-size: 12px;
+}
+.comment-popover-close:hover { color: #1f2328; }
+.comment-popover-empty { color: #8a8f96; font-size: 13px; }
+.comment-popover-entry { margin-bottom: 8px; padding-right: 14px; }
+.comment-popover-entry.cp-reply {
+  margin-left: 10px;
+  padding-left: 8px;
+  border-left: 2px solid #eceae6;
+}
+.cp-author { font-size: 12px; font-weight: 600; color: #1f2328; }
+.cp-body { font-size: 13px; color: #3a3f45; margin-top: 2px; white-space: pre-wrap; }
+
 /* Collaboration status (bottom-right) */
 .collab-status {
   position: fixed;
