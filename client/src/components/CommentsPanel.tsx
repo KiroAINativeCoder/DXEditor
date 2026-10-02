@@ -56,13 +56,6 @@ export default function CommentsPanel({
     await load()
   }
 
-  async function toggleResolved(t: Thread) {
-    const next = !t.resolved
-    await commentsApi.setResolved(docId, t.id, next)
-    onResolvedMark?.(t.id, next)
-    await load()
-  }
-
   async function remove(commentId: string) {
     await commentsApi.remove(docId, commentId)
     await load()
@@ -127,11 +120,6 @@ export default function CommentsPanel({
                 ) : (
                   <button className="btn-link" onClick={() => setReplyFor(t.id)}>Reply</button>
                 )
-              )}
-              {canEdit && (
-                <button className="btn-link" onClick={() => toggleResolved(t)}>
-                  {t.resolved ? 'Reopen' : 'Resolve'}
-                </button>
               )}
             </div>
           </li>

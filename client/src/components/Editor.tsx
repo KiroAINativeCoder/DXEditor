@@ -380,17 +380,21 @@ function CollabEditor({
     if (!popover || !popReply.trim()) return
     const parentId = popover.commentId
     await comments.add(docId, popReply.trim(), { parentId })
-    if (popover.thread?.resolved) {
-      try {
-        await comments.setResolved(docId, parentId, false)
-      } catch {
-        /* ignore */
-      }
-    }
     setPopReply('')
     onThreadCreated()
     loadPopoverThread(parentId)
   }, [popover, popReply, docId, onThreadCreated, loadPopoverThread])
+
+  // Archive = resolve (one-way): mark resolved, remove the document highlight.
+  // The thread stays in the right pane; there is no reopen.
+  const archiveThread = useCallback(async () => {
+    if (!popover) return
+    const id = popover.commentId
+    await comments.setResolved(docId, id, true)
+    editor?.chain().unsetComment(id).run()
+    onThreadCreated()
+    loadPopoverThread(id)
+  }, [popover, docId, editor, onThreadCreated, loadPopoverThread])
 
   // Inline new-comment composer (replaces the native window.prompt), shown in
   // the same white-box style as the thread popover.
@@ -476,9 +480,17 @@ function CollabEditor({
         >
           <div className="cp-head">
             <span className="cp-title">Comments</span>
-            <button className="cp-close-btn" onClick={() => setPopover(null)}>
-              Close
-            </button>
+            <div className="cp-head-actions">
+              {editable && popover.thread && !popover.thread.resolved && (
+                <button className="cp-archive-btn" onClick={archiveThread}>
+                  Archive
+                </button>
+              )}
+              {popover.thread?.resolved && <span className="cp-archived">Archived</span>}
+              <button className="cp-close-btn" onClick={() => setPopover(null)}>
+                Close
+              </button>
+            </div>
           </div>
           {!popover.thread ? (
             <div className="comment-popover-empty">Loading…</div>

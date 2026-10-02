@@ -151,20 +151,18 @@
 }
 .comment-popover-empty { color: #8a8f96; font-size: 13px; padding: 16px; }
 
-/* Header: centered title + Close */
+/* Header: title left, actions (Archive / Close) right */
 .cp-head {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   position: relative;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid #ececea;
 }
 .cp-title { font-size: 15px; font-weight: 600; color: #1f2328; }
+.cp-head-actions { display: flex; align-items: center; gap: 8px; }
 .cp-close-btn {
-  position: absolute;
-  right: 10px;
-  top: 8px;
   border: 1px solid #dcdbd7;
   background: #fff;
   border-radius: 7px;
@@ -174,6 +172,23 @@
   cursor: pointer;
 }
 .cp-close-btn:hover { background: #f4f3f1; }
+.cp-archive-btn {
+  border: 1px solid #dcdbd7;
+  background: #fff;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #3a3f45;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.cp-archive-btn:hover { background: #f4f3f1; }
+.cp-archived {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a8f96;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 
 /* Scrollable thread body */
 .cp-entries {
