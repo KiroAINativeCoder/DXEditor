@@ -9,6 +9,7 @@ export type DocMeta = {
   id: string
   title: string
   owner_id: string
+  folder_id: string | null
   isOwner: boolean
   created_at: string
   updated_at: string
@@ -116,19 +117,40 @@ async function myId(): Promise<string> {
 export const docs = {
   list: async (): Promise<DocMeta[]> => {
     const uid = await myId()
-    const { data, error } = await supabase
+    const primary = await supabase
       .from('document')
-      .select('id,title,owner_id,created_at,updated_at')
+      .select('id,title,owner_id,folder_id,created_at,updated_at')
       .order('updated_at', { ascending: false })
-    if (error) throw new ApiError(500, error.message)
-    return (data ?? []).map((d) => ({ ...d, isOwner: d.owner_id === uid }))
+    let rows: Array<Record<string, unknown>> = primary.data ?? []
+    if (primary.error) {
+      // Tolerate the folder_id column not being migrated yet.
+      if (/folder_id|column .* does not exist|42703/i.test(primary.error.message)) {
+        const fb = await supabase
+          .from('document')
+          .select('id,title,owner_id,created_at,updated_at')
+          .order('updated_at', { ascending: false })
+        if (fb.error) throw new ApiError(500, fb.error.message)
+        rows = fb.data ?? []
+      } else {
+        throw new ApiError(500, primary.error.message)
+      }
+    }
+    return rows.map((d) => ({
+      id: d.id as string,
+      title: d.title as string,
+      owner_id: d.owner_id as string,
+      folder_id: (d.folder_id as string | null) ?? null,
+      created_at: d.created_at as string,
+      updated_at: d.updated_at as string,
+      isOwner: d.owner_id === uid,
+    }))
   },
 
   get: async (id: string): Promise<DocDetail> => {
     const uid = await myId()
     const { data, error } = await supabase
       .from('document')
-      .select('id,title,owner_id,created_at,updated_at')
+      .select('id,title,owner_id,folder_id,created_at,updated_at')
       .eq('id', id)
       .maybeSingle()
     if (error || !data) throw new ApiError(404, 'Document not found')
@@ -145,9 +167,9 @@ export const docs = {
     return { ...data, isOwner: data.owner_id === uid, role }
   },
 
-  create: async (title?: string): Promise<DocDetail> => {
+  create: async (title?: string, folderId?: string | null): Promise<DocDetail> => {
     const uid = await myId()
-    const row = { title: title?.trim() || 'Untitled document', owner_id: uid }
+    const row = { title: title?.trim() || 'Untitled document', owner_id: uid, folder_id: folderId ?? null }
 
     // Insert WITHOUT return=representation: an inline INSERT…RETURNING forces a
     // SELECT-policy evaluation on the brand-new row in the same statement, which
@@ -165,13 +187,19 @@ export const docs = {
 
     const { data, error: selErr } = await supabase
       .from('document')
-      .select('id,title,owner_id,created_at,updated_at')
+      .select('id,title,owner_id,folder_id,created_at,updated_at')
       .eq('owner_id', uid)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
     if (selErr || !data) throw new ApiError(500, selErr?.message ?? 'Created but could not load the document')
     return { ...data, isOwner: true, role: 'OWNER' }
+  },
+
+  // Move a document into a folder (or null to unfile it).
+  move: async (id: string, folderId: string | null) => {
+    const { error } = await supabase.from('document').update({ folder_id: folderId }).eq('id', id)
+    if (error) throw new ApiError(403, error.message)
   },
 
   updateTitle: async (id: string, title: string) => {
@@ -348,5 +376,56 @@ export const versions = {
       headers: await authHeaders(),
     })
     if (!res.ok) throw new ApiError(res.status, `Could not delete version (${res.status})`)
+  },
+}
+
+// --------------------------------------------------------------- folders
+export type Folder = {
+  id: string
+  name: string
+  owner_id: string
+  parent_id: string | null
+  created_at: string
+}
+
+export const folders = {
+  list: async (): Promise<Folder[]> => {
+    const { data, error } = await supabase
+      .from('folder')
+      .select('id,name,owner_id,parent_id,created_at')
+      .order('created_at', { ascending: true })
+    if (error) throw new ApiError(500, error.message)
+    return (data ?? []) as Folder[]
+  },
+
+  create: async (name: string): Promise<Folder> => {
+    const uid = await myId()
+    const row = { name: name.trim() || 'New folder', owner_id: uid }
+    let { error } = await supabase.from('folder').insert(row)
+    if (error && /foreign key|owner_id|23503/i.test(error.message)) {
+      await ensureAppUser()
+      ;({ error } = await supabase.from('folder').insert(row))
+    }
+    if (error) throw new ApiError(403, error.message)
+    const { data, error: selErr } = await supabase
+      .from('folder')
+      .select('id,name,owner_id,parent_id,created_at')
+      .eq('owner_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (selErr || !data) throw new ApiError(500, selErr?.message ?? 'Created but could not load the folder')
+    return data as Folder
+  },
+
+  rename: async (id: string, name: string) => {
+    const { error } = await supabase.from('folder').update({ name: name.trim() }).eq('id', id)
+    if (error) throw new ApiError(403, error.message)
+  },
+
+  // Deleting a folder unfiles its documents (document.folder_id ON DELETE SET NULL).
+  remove: async (id: string) => {
+    const { error } = await supabase.from('folder').delete().eq('id', id)
+    if (error) throw new ApiError(403, error.message)
   },
 }
