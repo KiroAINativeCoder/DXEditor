@@ -54,7 +54,7 @@
 .thread-anchor:hover { background: #ffeccb; }
 
 .entry { margin-bottom: 8px; }
-.entry.is-reply { margin-left: 12px; padding-left: 8px; border-left: 2px solid #eceae6; }
+.entry.is-reply { margin-left: 0; padding-left: 0; border-left: none; }
 .entry-head { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .entry-name { font-weight: 600; color: #1f2328; }
 .entry-when { color: #a0a4ab; font-size: 11px; }
