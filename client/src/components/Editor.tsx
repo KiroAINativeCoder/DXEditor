@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { CodeBlock } from '@tiptap/extension-code-block'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TaskList } from '@tiptap/extension-task-list'
 import { TaskItem } from '@tiptap/extension-task-item'
@@ -274,7 +275,11 @@ function CollabEditor({
     immediatelyRender: false,
     editable,
     extensions: [
-      StarterKit.configure({ undoRedo: false }),
+      // Disable StarterKit's codeBlock so we can replace it with one that
+      // permits the comment mark (ProseMirror's default code_block sets
+      // marks:'' , which silently blocks comment highlights inside it).
+      StarterKit.configure({ undoRedo: false, codeBlock: false }),
+      CodeBlock.extend({ marks: 'comment' }),
       Placeholder.configure({ placeholder: 'Start writing…' }),
       TaskList,
       TaskItem.configure({ nested: true }),
