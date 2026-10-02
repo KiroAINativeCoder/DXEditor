@@ -43,17 +43,31 @@ class Room {
     this.name = name
     this.awareness.setLocalState(null)
 
-    this.loaded = ldb.getYDoc(name).then((persisted) => {
-      Y.applyUpdate(this.doc, Y.encodeStateAsUpdate(persisted))
-      // Persist + broadcast every future update.
-      this.doc.on('update', (update: Uint8Array, origin: unknown) => {
-        ldb.storeUpdate(name, update)
-        const enc = encoding.createEncoder()
-        encoding.writeVarUint(enc, MESSAGE_SYNC)
-        syncProtocol.writeUpdate(enc, update)
-        this.broadcast(encoding.toUint8Array(enc), origin as WebSocket | null)
+    this.loaded = ldb
+      .getYDoc(name)
+      .then((persisted) => {
+        // getYDoc can return null / throw if LevelDB had trouble; only seed
+        // when we actually got a doc. A failure here must NOT reject `loaded`,
+        // or the connection's room.loaded.then(sendSyncStep1) never runs and
+        // the client never receives the document (blank content).
+        if (persisted) {
+          Y.applyUpdate(this.doc, Y.encodeStateAsUpdate(persisted))
+        }
       })
-    })
+      .catch((err) => {
+        console.error(`[collab] load failed for room ${name} (continuing empty):`, err)
+      })
+      .finally(() => {
+        // Persist + broadcast every future update — registered regardless of
+        // whether the initial load succeeded.
+        this.doc.on('update', (update: Uint8Array, origin: unknown) => {
+          ldb.storeUpdate(name, update)
+          const enc = encoding.createEncoder()
+          encoding.writeVarUint(enc, MESSAGE_SYNC)
+          syncProtocol.writeUpdate(enc, update)
+          this.broadcast(encoding.toUint8Array(enc), origin as WebSocket | null)
+        })
+      })
 
     this.awareness.on(
       'update',
