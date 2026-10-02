@@ -100,8 +100,8 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="brand" onClick={() => navigate(null)} style={{ cursor: 'pointer' }} title="Home">
-          <span className="brand-mark">DX</span>
-          <span className="brand-name">DXEditor</span>
+          <span className="brand-mark">DD</span>
+          <span className="brand-name">DevDocs</span>
         </div>
         {canShare && (
           <button className="header-btn share-primary" onClick={() => setSharing(true)}>

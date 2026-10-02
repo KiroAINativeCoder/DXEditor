@@ -42,8 +42,8 @@ export default function Auth({ onAuthed }: { onAuthed: (u: User) => void }) {
       <div className="auth-screen">
         <div className="auth-card">
           <div className="auth-brand">
-            <span className="brand-mark">DX</span>
-            <span className="brand-name">DXEditor</span>
+            <span className="brand-mark">DD</span>
+            <span className="brand-name">DevDocs</span>
           </div>
           <h1 className="auth-title">Check your inbox</h1>
           <p className="auth-note">
@@ -69,8 +69,8 @@ export default function Auth({ onAuthed }: { onAuthed: (u: User) => void }) {
     <div className="auth-screen">
       <form className="auth-card" onSubmit={submit}>
         <div className="auth-brand">
-          <span className="brand-mark">DX</span>
-          <span className="brand-name">DXEditor</span>
+          <span className="brand-mark">DD</span>
+          <span className="brand-name">DevDocs</span>
         </div>
         <h1 className="auth-title">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
 
