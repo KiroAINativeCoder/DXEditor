@@ -19,13 +19,12 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
       const list = await docsApi.list()
       setItems(list)
       setError(null)
-      if (!selectedId && list.length) onSelect(list[0].id)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load documents')
     } finally {
       setLoading(false)
     }
-  }, [selectedId, onSelect])
+  }, [])
 
   useEffect(() => {
     load()

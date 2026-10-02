@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import Editor from './components/Editor'
 import Auth from './components/Auth'
@@ -6,14 +6,35 @@ import ShareDialog from './components/ShareDialog'
 import { auth, docs, type User, type DocDetail } from './lib/api'
 import './App.css'
 
+// Read the current document id from the URL (/doc/:id), or null for home (/).
+function idFromPath(): string | null {
+  const m = window.location.pathname.match(/^\/doc\/([^/]+)/)
+  return m ? decodeURIComponent(m[1]) : null
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Selection is driven by the URL so every document is shareable by link.
+  const [selectedId, setSelectedId] = useState<string | null>(idFromPath())
   const [detail, setDetail] = useState<DocDetail | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [sharing, setSharing] = useState(false)
+
+  // Navigate: push a new URL and update selection. Passing null goes home (/).
+  const navigate = useCallback((id: string | null) => {
+    const path = id ? `/doc/${encodeURIComponent(id)}` : '/'
+    if (window.location.pathname !== path) window.history.pushState({}, '', path)
+    setSelectedId(id)
+  }, [])
+
+  // Keep selection in sync with browser back/forward.
+  useEffect(() => {
+    const onPop = () => setSelectedId(idFromPath())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   // On load, check for an existing session.
   useEffect(() => {
@@ -34,16 +55,21 @@ export default function App() {
     docs
       .get(selectedId)
       .then((d) => !cancelled && setDetail(d))
-      .catch(() => !cancelled && setSelectedId(null))
+      .catch(() => {
+        if (cancelled) return
+        // Unknown / inaccessible id in the URL — fall back to home.
+        setDetail(null)
+        navigate(null)
+      })
     return () => {
       cancelled = true
     }
-  }, [selectedId, user, refreshKey])
+  }, [selectedId, user, refreshKey, navigate])
 
   async function logout() {
     await auth.signOut().catch(() => undefined)
     setUser(null)
-    setSelectedId(null)
+    navigate(null)
     setDetail(null)
   }
 
@@ -61,7 +87,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="brand">
+        <div className="brand" onClick={() => navigate(null)} style={{ cursor: 'pointer' }} title="Home">
           <span className="brand-mark">DX</span>
           <span className="brand-name">DXEditor</span>
         </div>
@@ -81,7 +107,7 @@ export default function App() {
       <div className="app-body">
         <Sidebar
           selectedId={selectedId}
-          onSelect={(id) => setSelectedId(id || null)}
+          onSelect={(id) => navigate(id || null)}
           refreshKey={refreshKey}
         />
         <main className="app-main">
