@@ -39,21 +39,20 @@ export class ApiError extends Error {
 export const auth = {
   // Returns needsConfirmation=true when Supabase created the user but issued no
   // session (email confirmation is on). The name is stashed locally so we can
-  // sync the app_user row on the first confirmed sign-in.
+  // set it on the app_user row on the first confirmed sign-in.
   signUp: async (email: string, password: string, name?: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw new ApiError(400, error.message)
     if (name) localStorage.setItem('dx_pending_name', name)
     const needsConfirmation = !data.session
-    if (!needsConfirmation) await sync(name)
+    if (!needsConfirmation) void sync(name) // best-effort, non-blocking
     return { user: data.user, needsConfirmation }
   },
   signIn: async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw new ApiError(401, error.message)
     const pendingName = localStorage.getItem('dx_pending_name') ?? undefined
-    await sync(pendingName)
-    localStorage.removeItem('dx_pending_name')
+    void sync(pendingName).then(() => localStorage.removeItem('dx_pending_name'))
     return data.user
   },
   signOut: () => supabase.auth.signOut(),
@@ -64,15 +63,24 @@ export const auth = {
   },
 }
 
-/** Provision/refresh our app_user row (FK target for docs/comments). */
+/**
+ * Best-effort update of the app_user display name. The ROW ITSELF is created by
+ * a database trigger on auth.users (see supabase/0002_app_user_trigger.sql), so
+ * this is purely to set the optional name — it must NEVER throw into the login
+ * flow. Any failure (API down, offline) is swallowed.
+ */
 async function sync(name?: string) {
-  const token = await accessToken()
-  if (!token) return
-  await fetch(`${BASE}/api/auth/sync`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ name }),
-  })
+  try {
+    const token = await accessToken()
+    if (!token || !name) return
+    await fetch(`${BASE}/api/auth/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name }),
+    })
+  } catch {
+    /* non-fatal: the DB trigger already provisioned the row */
+  }
 }
 
 // -------------------------------------------------------------- documents
