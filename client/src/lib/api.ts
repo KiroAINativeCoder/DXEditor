@@ -148,12 +148,20 @@ export const docs = {
 
   get: async (id: string): Promise<DocDetail> => {
     const uid = await myId()
-    const { data, error } = await supabase
+    let r = await supabase
       .from('document')
       .select('id,title,owner_id,folder_id,created_at,updated_at')
       .eq('id', id)
       .maybeSingle()
-    if (error || !data) throw new ApiError(404, 'Document not found')
+    if (r.error && /folder_id|does not exist|42703/i.test(r.error.message)) {
+      r = await supabase
+        .from('document')
+        .select('id,title,owner_id,created_at,updated_at')
+        .eq('id', id)
+        .maybeSingle()
+    }
+    const data = r.data as Record<string, unknown> | null
+    if (r.error || !data) throw new ApiError(404, 'Document not found')
     let role: Role = data.owner_id === uid ? 'OWNER' : 'VIEWER'
     if (data.owner_id !== uid) {
       const { data: m } = await supabase
@@ -164,12 +172,22 @@ export const docs = {
         .maybeSingle()
       if (m) role = m.role as Role
     }
-    return { ...data, isOwner: data.owner_id === uid, role }
+    return {
+      id: data.id as string,
+      title: data.title as string,
+      owner_id: data.owner_id as string,
+      folder_id: (data.folder_id as string | null) ?? null,
+      created_at: data.created_at as string,
+      updated_at: data.updated_at as string,
+      isOwner: data.owner_id === uid,
+      role,
+    }
   },
 
   create: async (title?: string, folderId?: string | null): Promise<DocDetail> => {
     const uid = await myId()
-    const row = { title: title?.trim() || 'Untitled document', owner_id: uid, folder_id: folderId ?? null }
+    const base = { title: title?.trim() || 'Untitled document', owner_id: uid }
+    const row: Record<string, unknown> = { ...base, folder_id: folderId ?? null }
 
     // Insert WITHOUT return=representation: an inline INSERT…RETURNING forces a
     // SELECT-policy evaluation on the brand-new row in the same statement, which
@@ -177,23 +195,46 @@ export const docs = {
     // read the row back with a normal select.
     let { error } = await supabase.from('document').insert(row)
 
+    // Tolerate the folder_id column not being migrated yet: retry without it.
+    if (error && /folder_id|does not exist|42703/i.test(error.message)) {
+      ;({ error } = await supabase.from('document').insert(base))
+    }
     // A brand-new user (e.g. just after confirming their email) may not have an
     // app_user row yet, so owner_id fails the foreign key. Provision it and retry.
     if (error && /foreign key|owner_id_fkey|23503/i.test(error.message)) {
       await ensureAppUser()
-      ;({ error } = await supabase.from('document').insert(row))
+      ;({ error } = await supabase.from('document').insert(base))
     }
     if (error) throw new ApiError(403, error.message)
 
-    const { data, error: selErr } = await supabase
+    let sel = await supabase
       .from('document')
       .select('id,title,owner_id,folder_id,created_at,updated_at')
       .eq('owner_id', uid)
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
-    if (selErr || !data) throw new ApiError(500, selErr?.message ?? 'Created but could not load the document')
-    return { ...data, isOwner: true, role: 'OWNER' }
+    if (sel.error && /folder_id|does not exist|42703/i.test(sel.error.message)) {
+      sel = await supabase
+        .from('document')
+        .select('id,title,owner_id,created_at,updated_at')
+        .eq('owner_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+    }
+    const data = sel.data as Record<string, unknown> | null
+    if (sel.error || !data) throw new ApiError(500, sel.error?.message ?? 'Created but could not load the document')
+    return {
+      id: data.id as string,
+      title: data.title as string,
+      owner_id: data.owner_id as string,
+      folder_id: (data.folder_id as string | null) ?? null,
+      created_at: data.created_at as string,
+      updated_at: data.updated_at as string,
+      isOwner: true,
+      role: 'OWNER',
+    }
   },
 
   // Move a document into a folder (or null to unfile it).
