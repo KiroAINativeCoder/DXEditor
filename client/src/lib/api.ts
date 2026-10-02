@@ -197,29 +197,36 @@ export const shares = {
   },
 
   add: async (docId: string, email: string, role: Role) => {
+    const token = await accessToken()
+    const auth = token ? { Authorization: `Bearer ${token}` } : undefined
+
     // Resolve the target user by email via the server (service role). A direct
     // client query of app_user can't see users you haven't collaborated with
     // yet (RLS), so the lookup must happen server-side.
-    const token = await accessToken()
     const res = await fetch(`${BASE}/api/users/lookup?email=${encodeURIComponent(email)}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      headers: auth,
     })
     if (res.status === 404) throw new ApiError(404, 'No user with that email')
     if (!res.ok) throw new ApiError(res.status, `Lookup failed (${res.status})`)
     const target = (await res.json()) as { id: string }
 
-    // Can't share a doc with yourself (you already own or have access to it).
-    const me = await myId()
-    if (target.id === me) throw new ApiError(400, 'You already have access to this document')
-
-    const { error } = await supabase
-      .from('membership')
-      .upsert(
-        { document_id: docId, user_id: target.id, role },
-        { onConflict: 'document_id,user_id' },
-      )
-    // Surface the real Postgres/RLS message instead of a generic failure.
-    if (error) throw new ApiError(403, error.message || 'Share was rejected')
+    // Create the membership via the server (service role) after it verifies the
+    // caller owns/manages the doc. Avoids client-token/RLS timing fragility.
+    const shareRes = await fetch(`${BASE}/api/docs/${docId}/shares`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(auth ?? {}) },
+      body: JSON.stringify({ userId: target.id, role }),
+    })
+    if (!shareRes.ok) {
+      let msg = `Share failed (${shareRes.status})`
+      try {
+        const body = (await shareRes.json()) as { error?: string }
+        if (body.error) msg = body.error
+      } catch {
+        /* keep default */
+      }
+      throw new ApiError(shareRes.status, msg)
+    }
   },
 
   remove: async (docId: string, userId: string) => {

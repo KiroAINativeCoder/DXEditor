@@ -63,6 +63,50 @@ app.get('/api/users/lookup', requireAuth, async (req, res) => {
   res.json(data)
 })
 
+// Create/update a share. The membership insert is done server-side with the
+// service role to avoid client-token/RLS timing fragility, but we FIRST verify
+// the caller is OWNER (or MANAGER) of the document, preserving the same
+// authorization the RLS policy enforces.
+app.post('/api/docs/:id/shares', requireAuth, async (req, res) => {
+  const callerId = req.user!.id
+  const docId = req.params.id
+  const targetUserId = typeof req.body?.userId === 'string' ? req.body.userId : ''
+  const role = typeof req.body?.role === 'string' ? req.body.role : ''
+  if (!targetUserId || !['VIEWER', 'EDITOR', 'MANAGER'].includes(role)) {
+    return res.status(400).json({ error: 'userId and a valid role are required' })
+  }
+  if (targetUserId === callerId) {
+    return res.status(400).json({ error: 'You already have access to this document' })
+  }
+
+  // Authorize: caller must own the doc, or hold a MANAGER membership on it.
+  const { data: doc, error: docErr } = await admin
+    .from('document')
+    .select('owner_id')
+    .eq('id', docId)
+    .maybeSingle()
+  if (docErr) return res.status(500).json({ error: docErr.message })
+  if (!doc) return res.status(404).json({ error: 'Document not found' })
+
+  let canManage = doc.owner_id === callerId
+  if (!canManage) {
+    const { data: mem } = await admin
+      .from('membership')
+      .select('role')
+      .eq('document_id', docId)
+      .eq('user_id', callerId)
+      .maybeSingle()
+    canManage = mem?.role === 'MANAGER'
+  }
+  if (!canManage) return res.status(403).json({ error: 'Only the owner or a manager can share' })
+
+  const { error } = await admin
+    .from('membership')
+    .upsert({ document_id: docId, user_id: targetUserId, role }, { onConflict: 'document_id,user_id' })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ ok: true })
+})
+
 // The collab relay is a raw WebSocket and reads its token from the query
 // string. The browser already holds a Supabase access token; this endpoint
 // simply echoes the verified identity so the client knows the token is good
