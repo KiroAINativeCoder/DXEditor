@@ -184,6 +184,11 @@ function CollabEditor({
   const [bubble, setBubble] = useState<{ top: number; left: number } | null>(null)
 
   const editor = useEditor({
+    // Tiptap v3 defaults to rendering during the first React render, which
+    // races the async Yjs sync (content arrives after) and triggers a
+    // "setState while rendering" warning + blank content. Defer the first
+    // render so Collaboration populates from the synced Y.Doc cleanly.
+    immediatelyRender: false,
     editable,
     extensions: [
       StarterKit.configure({ undoRedo: false }),
