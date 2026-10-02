@@ -10,7 +10,8 @@
     "start": "node dist/server.js",
     "migrate": "prisma migrate dev",
     "collab": "tsx watch src/collab.ts",
-    "test:concurrent": "node scripts/concurrent-test.mjs"
+    "test:concurrent": "node scripts/concurrent-test.mjs",
+    "test:comments": "node scripts/comments-test.mjs"
   },
   "keywords": [],
   "author": "",

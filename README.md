@@ -153,7 +153,7 @@ npm --prefix server run test:concurrent 5 10      # 5 editors, 10 edits each
 - [x] **Phase 3** — Real-time collaboration (Yjs + WebSocket relay + presence)
 - [x] **Phase 4a** — Document management (list, create, rename, delete; per-doc rooms)
 - [x] **Phase 4b** — Auth (email/password + JWT cookie), sharing by email, viewer/editor roles enforced on REST + WebSocket
-- [ ] **Phase 5** — Comments
+- [x] **Phase 5** — Comments (anchored threads, replies, resolve; access-controlled)
 - [ ] **Phase 6** — Folders, slash commands, export, full-text search, deploy
 
 ## License

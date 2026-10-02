@@ -171,6 +171,89 @@ app.delete('/api/documents/:id/shares/:userId', requireAuth, async (req, res) =>
   res.status(204).end()
 })
 
+// --------------------------------------------------------------- comments
+// Comments are visible to anyone with document access; creating/replying needs
+// edit rights; resolving or deleting is allowed for the author or the owner.
+
+const authorSelect = { select: { id: true, email: true, name: true } }
+
+// List all comment threads on a document (roots with their replies).
+app.get('/api/documents/:id/comments', requireAuth, async (req, res) => {
+  const access = await getAccess(req.user!.id, String(req.params.id))
+  if (!access) return res.status(404).json({ error: 'Document not found' })
+
+  const roots = await prisma.comment.findMany({
+    where: { documentId: String(req.params.id), parentId: null },
+    orderBy: { createdAt: 'asc' },
+    include: {
+      author: authorSelect,
+      replies: { orderBy: { createdAt: 'asc' }, include: { author: authorSelect } },
+    },
+  })
+  res.json(roots)
+})
+
+// Create a new thread (root) or a reply (pass parentId).
+app.post('/api/documents/:id/comments', requireAuth, async (req, res) => {
+  const access = await getAccess(req.user!.id, String(req.params.id))
+  if (!access) return res.status(404).json({ error: 'Document not found' })
+  if (!canEdit(access)) return res.status(403).json({ error: 'Read-only access' })
+
+  const { body, anchorId, quote, parentId } = req.body ?? {}
+  if (typeof body !== 'string' || !body.trim()) {
+    return res.status(400).json({ error: 'Comment body is required' })
+  }
+  const comment = await prisma.comment.create({
+    data: {
+      documentId: String(req.params.id),
+      authorId: req.user!.id,
+      body: body.trim(),
+      anchorId: parentId ? null : (anchorId ?? null),
+      quote: parentId ? null : (quote ?? null),
+      parentId: parentId ?? null,
+    },
+    include: { author: authorSelect },
+  })
+  res.status(201).json(comment)
+})
+
+// Resolve / unresolve a thread (author or owner). Applies to the root.
+app.patch('/api/documents/:id/comments/:commentId', requireAuth, async (req, res) => {
+  const access = await getAccess(req.user!.id, String(req.params.id))
+  if (!access) return res.status(404).json({ error: 'Document not found' })
+
+  const comment = await prisma.comment.findUnique({ where: { id: String(req.params.commentId) } })
+  if (!comment || comment.documentId !== String(req.params.id)) {
+    return res.status(404).json({ error: 'Comment not found' })
+  }
+  const isAuthorOrOwner = comment.authorId === req.user!.id || access.role === 'OWNER'
+  if (!isAuthorOrOwner) return res.status(403).json({ error: 'Not allowed' })
+
+  const { resolved } = req.body ?? {}
+  const updated = await prisma.comment.update({
+    where: { id: comment.id },
+    data: { resolved: Boolean(resolved) },
+    include: { author: authorSelect },
+  })
+  res.json(updated)
+})
+
+// Delete a comment (author or owner). Deleting a root cascades to its replies.
+app.delete('/api/documents/:id/comments/:commentId', requireAuth, async (req, res) => {
+  const access = await getAccess(req.user!.id, String(req.params.id))
+  if (!access) return res.status(404).json({ error: 'Document not found' })
+
+  const comment = await prisma.comment.findUnique({ where: { id: String(req.params.commentId) } })
+  if (!comment || comment.documentId !== String(req.params.id)) {
+    return res.status(404).json({ error: 'Comment not found' })
+  }
+  const isAuthorOrOwner = comment.authorId === req.user!.id || access.role === 'OWNER'
+  if (!isAuthorOrOwner) return res.status(403).json({ error: 'Not allowed' })
+
+  await prisma.comment.delete({ where: { id: comment.id } })
+  res.status(204).end()
+})
+
 app.listen(PORT, () => {
   console.log(`DXEditor API listening on http://localhost:${PORT}`)
 })

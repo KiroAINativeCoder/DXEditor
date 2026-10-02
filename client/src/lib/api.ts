@@ -15,6 +15,18 @@ export type Role = 'OWNER' | 'EDITOR' | 'VIEWER'
 export type DocDetail = DocMeta & { role: Role }
 export type Share = { id: string; role: 'EDITOR' | 'VIEWER'; user: User }
 
+export type Comment = {
+  id: string
+  body: string
+  anchorId: string | null
+  quote: string | null
+  parentId: string | null
+  resolved: boolean
+  createdAt: string
+  author: User
+}
+export type Thread = Comment & { replies: Comment[] }
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let msg = `${res.status}`
@@ -69,4 +81,22 @@ export const api = {
     fetch(`${BASE}/api/documents/${id}/shares`, opts('POST', { email, role })).then(json<Share>),
   removeShare: (id: string, userId: string) =>
     fetch(`${BASE}/api/documents/${id}/shares/${userId}`, opts('DELETE')).then(json<void>),
+
+  // --- comments ---
+  listComments: (id: string) =>
+    fetch(`${BASE}/api/documents/${id}/comments`, opts('GET')).then(json<Thread[]>),
+  addComment: (
+    id: string,
+    body: string,
+    extra?: { anchorId?: string; quote?: string; parentId?: string },
+  ) =>
+    fetch(`${BASE}/api/documents/${id}/comments`, opts('POST', { body, ...extra })).then(
+      json<Comment>,
+    ),
+  setResolved: (id: string, commentId: string, resolved: boolean) =>
+    fetch(`${BASE}/api/documents/${id}/comments/${commentId}`, opts('PATCH', { resolved })).then(
+      json<Comment>,
+    ),
+  removeComment: (id: string, commentId: string) =>
+    fetch(`${BASE}/api/documents/${id}/comments/${commentId}`, opts('DELETE')).then(json<void>),
 }

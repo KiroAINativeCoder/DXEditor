@@ -21,6 +21,7 @@ model User {
   createdAt    DateTime     @default(now())
   documents    Document[]   // documents this user owns
   memberships  Membership[] // documents shared with this user
+  comments     Comment[]
 }
 
 model Document {
@@ -31,6 +32,7 @@ model Document {
   owner       User         @relation(fields: [ownerId], references: [id])
   ownerId     String
   memberships Membership[]
+  comments    Comment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -51,4 +53,28 @@ model Membership {
   createdAt  DateTime @default(now())
 
   @@unique([documentId, userId]) // one membership per user per doc
+}
+
+// A comment on a document. A thread is a root comment (parentId = null)
+// anchored to a text range via `anchorId` (the id carried by the Tiptap
+// comment mark), plus its replies (parentId = the root's id).
+model Comment {
+  id         String    @id @default(cuid())
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId String
+  author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId   String
+  body       String
+  // Stable anchor shared with the Tiptap comment mark. Null on replies.
+  anchorId   String?
+  // Short snippet of the anchored text, shown in the thread list.
+  quote      String?
+  parent     Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  parentId   String?
+  replies    Comment[] @relation("CommentReplies")
+  resolved   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+
+  @@index([documentId])
+  @@index([anchorId])
 }

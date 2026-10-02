@@ -81,6 +81,7 @@ export default function App() {
               docId={selectedId}
               initialTitle={detail.title}
               role={detail.role}
+              currentUserId={user.id}
               onTitleSaved={() => setRefreshKey((k) => k + 1)}
             />
           ) : (
