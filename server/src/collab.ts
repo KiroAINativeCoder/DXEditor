@@ -137,20 +137,39 @@ wss.on('connection', async (conn: WebSocket, req) => {
   const docName = url.pathname.slice(1) || 'default'
   const token = url.searchParams.get('token') ?? ''
 
-  // Authenticate: valid session token required.
-  const session = await verifyToken(token)
-  if (!session) {
-    conn.close(4001, 'unauthenticated')
-    return
-  }
-  // Authorize: the user must own or be a member of this document.
-  const access = await getAccess(session.id, docName)
-  if (!access) {
-    conn.close(4003, 'forbidden')
-    return
-  }
-  const canWrite = canEdit(access)
+  try {
+    // Authenticate: valid session token required.
+    const session = await verifyToken(token)
+    if (!session) {
+      console.warn(`[collab] reject ${docName}: unauthenticated (token ${token ? 'present-but-invalid' : 'missing'})`)
+      conn.close(4001, 'unauthenticated')
+      return
+    }
+    // Authorize: the user must own or be a member of this document.
+    const access = await getAccess(session.id, docName)
+    if (!access) {
+      console.warn(`[collab] reject ${docName}: user ${session.id} has no access`)
+      conn.close(4003, 'forbidden')
+      return
+    }
+    const canWrite = canEdit(access)
+    console.log(`[collab] accept ${docName}: user ${session.id} role=${access.role} canWrite=${canWrite}`)
 
+    await attachConnection(conn, docName, canWrite)
+  } catch (err) {
+    // A transient failure (e.g. the Supabase access query errored) must NOT
+    // leave the socket half-open — that causes the client to reconnect in a
+    // loop. Close explicitly with a distinct code and log the cause.
+    console.error(`[collab] error on connect ${docName}:`, err)
+    try {
+      conn.close(4500, 'server error')
+    } catch {
+      /* already closing */
+    }
+  }
+})
+
+async function attachConnection(conn: WebSocket, docName: string, canWrite: boolean) {
   const room = getRoom(docName)
   conn.binaryType = 'arraybuffer'
   room.conns.add(conn)
@@ -202,7 +221,7 @@ wss.on('connection', async (conn: WebSocket, req) => {
     for (const bytes of queue) handleMessage(room, conn, bytes, canWrite)
     queue.length = 0
   })
-})
+}
 
 server.listen(PORT, () => {
   console.log(`DXEditor collab (Yjs) listening on ws://localhost:${PORT}`)
