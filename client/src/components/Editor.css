@@ -61,6 +61,29 @@
   margin-top: 40px;
 }
 
+/* Document font options (Quip-style). Applied to the editor content. */
+.editor-content.font-sans .ProseMirror {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.editor-content.font-serif .ProseMirror {
+  font-family: Georgia, Cambria, 'Times New Roman', serif;
+}
+.editor-content.font-mono .ProseMirror {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.font-picker {
+  border: 1px solid #e6e6e3;
+  background: #fff;
+  border-radius: 7px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a3f45;
+  cursor: pointer;
+}
+.font-picker:hover { background: #f0efec; }
+
 /* Floating "Comment" button over a text selection */
 .comment-bubble {
   position: absolute;

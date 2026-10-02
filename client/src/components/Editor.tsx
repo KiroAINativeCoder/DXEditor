@@ -24,6 +24,15 @@ const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
 
 type Status = 'connecting' | 'connected' | 'disconnected'
 
+// Document font options (Quip-style). The key maps to a CSS class on the
+// editor content; the stacks live in Editor.css.
+export type FontKey = 'sans' | 'serif' | 'mono'
+const FONTS: { key: FontKey; label: string }[] = [
+  { key: 'sans', label: 'Sans-serif' },
+  { key: 'serif', label: 'Serif' },
+  { key: 'mono', label: 'Monospace' },
+]
+
 type Props = {
   docId: string
   initialTitle: string
@@ -43,6 +52,15 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
 
   const [showComments, setShowComments] = useState(false)
   const [commentRefresh, setCommentRefresh] = useState(0)
+  // Document font family (Quip-style). Persisted per-doc in localStorage; the
+  // choice is view-local (not synced to collaborators) for this first version.
+  const [font, setFont] = useState<FontKey>(
+    () => (localStorage.getItem(`dx_font_${docId}`) as FontKey) || 'sans',
+  )
+  function changeFont(f: FontKey) {
+    setFont(f)
+    localStorage.setItem(`dx_font_${docId}`, f)
+  }
   // Set by the panel; the editor reads it to scroll to/flash an anchor.
   const [focusAnchor, setFocusAnchor] = useState<string | null>(null)
 
@@ -113,6 +131,19 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
           readOnly={!canEdit}
           aria-label="Document title"
         />
+        <select
+          className="font-picker"
+          value={font}
+          onChange={(e) => changeFont(e.target.value as FontKey)}
+          aria-label="Document font"
+          title="Document font"
+        >
+          {FONTS.map((f) => (
+            <option key={f.key} value={f.key}>
+              {f.label}
+            </option>
+          ))}
+        </select>
         <button
           className={`comments-btn${showComments ? ' is-active' : ''}`}
           onClick={() => setShowComments((v) => !v)}
@@ -129,6 +160,7 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
             provider={conn.provider}
             identity={identity}
             editable={canEdit}
+            font={font}
             focusAnchor={focusAnchor}
             onThreadCreated={() => {
               setCommentRefresh((k) => k + 1)
@@ -169,6 +201,7 @@ function CollabEditor({
   provider,
   identity,
   editable,
+  font,
   focusAnchor,
   onThreadCreated,
 }: {
@@ -177,6 +210,7 @@ function CollabEditor({
   provider: WebsocketProvider
   identity: Identity
   editable: boolean
+  font: FontKey
   focusAnchor: string | null
   onThreadCreated: () => void
 }) {
@@ -259,7 +293,7 @@ function CollabEditor({
         </button>
       )}
       {editable && <Toolbar editor={editor} />}
-      <EditorContent editor={editor} className="editor-content" />
+      <EditorContent editor={editor} className={`editor-content font-${font}`} />
     </div>
   )
 }
