@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, type Editor as TiptapEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { TaskList } from '@tiptap/extension-task-list'
@@ -14,6 +14,7 @@ import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import Toolbar from './Toolbar'
 import CommentsPanel from './CommentsPanel'
+import Menu from './Menu'
 import { CommentMark } from './CommentMark'
 import { docs, comments, type Role } from '../lib/api'
 import { accessToken } from '../lib/supabase'
@@ -25,13 +26,8 @@ const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
 type Status = 'connecting' | 'connected' | 'disconnected'
 
 // Document font options (Quip-style). The key maps to a CSS class on the
-// editor content; the stacks live in Editor.css.
+// editor content; the stacks live in Editor.css. Selected from the Format menu.
 export type FontKey = 'sans' | 'serif' | 'mono'
-const FONTS: { key: FontKey; label: string }[] = [
-  { key: 'sans', label: 'Sans-serif' },
-  { key: 'serif', label: 'Serif' },
-  { key: 'mono', label: 'Monospace' },
-]
 
 type Props = {
   docId: string
@@ -63,6 +59,9 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
   }
   // Set by the panel; the editor reads it to scroll to/flash an anchor.
   const [focusAnchor, setFocusAnchor] = useState<string | null>(null)
+  // The live Tiptap editor instance, lifted from CollabEditor so the menu bar
+  // (Edit/Insert/Format) can drive it.
+  const [ed, setEd] = useState<TiptapEditor | null>(null)
 
   useEffect(() => {
     let provider: WebsocketProvider | null = null
@@ -133,28 +132,56 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
             aria-label="Document title"
           />
           <div className="doc-menu-row" role="menubar" aria-label="Document menus">
-            <span className="doc-menu-item is-active">Document</span>
-            <span className="doc-menu-item">Edit</span>
-            <span className="doc-menu-item">View</span>
-            <span className="doc-menu-item">Insert</span>
-            <span className="doc-menu-item">Format</span>
+            <Menu
+              label="Document"
+              items={[
+                { label: 'Rename…', disabled: !canEdit, onClick: () => {
+                    const n = window.prompt('Rename document', title)
+                    if (n && n.trim()) onTitleChange(n.trim())
+                  } },
+              ]}
+            />
+            <Menu
+              label="Edit"
+              items={[
+                { label: 'Undo', disabled: !ed?.can().undo(), onClick: () => ed?.chain().focus().undo().run() },
+                { label: 'Redo', disabled: !ed?.can().redo(), onClick: () => ed?.chain().focus().redo().run() },
+              ]}
+            />
+            <Menu
+              label="View"
+              items={[
+                { label: 'Comments', checked: showComments, onClick: () => setShowComments((v) => !v) },
+              ]}
+            />
+            <Menu
+              label="Insert"
+              items={[
+                { label: 'Table', disabled: !canEdit, onClick: () => ed?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+                { label: 'Checklist', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleTaskList().run() },
+                { label: 'Bullet list', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleBulletList().run() },
+                { label: 'Numbered list', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleOrderedList().run() },
+                { label: 'Code block', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleCodeBlock().run() },
+                { label: 'Divider', disabled: !canEdit, onClick: () => ed?.chain().focus().setHorizontalRule().run() },
+              ]}
+            />
+            <Menu
+              label="Format"
+              items={[
+                { label: 'Bold', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleBold().run() },
+                { label: 'Italic', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleItalic().run() },
+                { label: 'Underline', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleUnderline().run() },
+                { label: 'Strikethrough', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleStrike().run() },
+                { separator: true, label: '' },
+                { label: 'Font: Sans-serif', checked: font === 'sans', onClick: () => changeFont('sans') },
+                { label: 'Font: Serif', checked: font === 'serif', onClick: () => changeFont('serif') },
+                { label: 'Font: Monospace', checked: font === 'mono', onClick: () => changeFont('mono') },
+              ]}
+            />
           </div>
         </div>
 
         <div className="topbar-right">
-          <select
-            className="font-picker"
-            value={font}
-            onChange={(e) => changeFont(e.target.value as FontKey)}
-            aria-label="Document font"
-            title="Document font"
-          >
-            {FONTS.map((f) => (
-              <option key={f.key} value={f.key}>
-                {f.label}
-              </option>
-            ))}
-          </select>
           <button
             className={`comments-btn${showComments ? ' is-active' : ''}`}
             onClick={() => setShowComments((v) => !v)}
@@ -175,6 +202,7 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
             editable={canEdit}
             font={font}
             focusAnchor={focusAnchor}
+            onEditorReady={setEd}
             onThreadCreated={() => {
               setCommentRefresh((k) => k + 1)
               setShowComments(true)
@@ -217,6 +245,7 @@ function CollabEditor({
   font,
   focusAnchor,
   onThreadCreated,
+  onEditorReady,
 }: {
   docId: string
   ydoc: Y.Doc
@@ -226,6 +255,7 @@ function CollabEditor({
   font: FontKey
   focusAnchor: string | null
   onThreadCreated: () => void
+  onEditorReady?: (editor: TiptapEditor | null) => void
 }) {
   // A floating "Comment" button shown over the current text selection.
   const [bubble, setBubble] = useState<{ top: number; left: number } | null>(null)
@@ -265,6 +295,12 @@ function CollabEditor({
       setBubble({ top: start.top - 42, left: (start.left + end.left) / 2 })
     },
   })
+
+  // Report the editor instance up to the parent so the menu bar can drive it.
+  useEffect(() => {
+    onEditorReady?.(editor)
+    return () => onEditorReady?.(null)
+  }, [editor, onEditorReady])
 
   // Scroll to + briefly flash the anchored span when a thread is clicked.
   useEffect(() => {
