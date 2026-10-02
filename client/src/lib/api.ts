@@ -197,15 +197,17 @@ export const shares = {
   },
 
   add: async (docId: string, email: string, role: Role) => {
-    // Resolve the target user id by email (app_user is readable per RLS only
-    // for collaborators; sharing with a brand-new email requires that the user
-    // has signed up at least once — same constraint as before).
-    const { data: target, error: e1 } = await supabase
-      .from('app_user')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle()
-    if (e1 || !target) throw new ApiError(404, 'No user with that email')
+    // Resolve the target user by email via the server (service role). A direct
+    // client query of app_user can't see users you haven't collaborated with
+    // yet (RLS), so the lookup must happen server-side.
+    const token = await accessToken()
+    const res = await fetch(`${BASE}/api/users/lookup?email=${encodeURIComponent(email)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (res.status === 404) throw new ApiError(404, 'No user with that email')
+    if (!res.ok) throw new ApiError(res.status, 'Could not look up that user')
+    const target = (await res.json()) as { id: string }
+
     const { error } = await supabase
       .from('membership')
       .upsert(

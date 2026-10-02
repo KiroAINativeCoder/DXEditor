@@ -45,6 +45,24 @@ app.post('/api/auth/sync', requireAuth, async (req, res) => {
   res.json({ id, email, name })
 })
 
+// Resolve a user by email for sharing. Done server-side with the service role
+// because app_user RLS only lets a caller see themselves + existing
+// collaborators — so a client-side lookup of someone you haven't shared with
+// yet returns nothing (chicken-and-egg). Only an authenticated user may call
+// this, and it returns just the id/email/name needed to create a share.
+app.get('/api/users/lookup', requireAuth, async (req, res) => {
+  const email = typeof req.query.email === 'string' ? req.query.email.trim() : ''
+  if (!email) return res.status(400).json({ error: 'email required' })
+  const { data, error } = await admin
+    .from('app_user')
+    .select('id,email,name')
+    .eq('email', email)
+    .maybeSingle()
+  if (error) return res.status(500).json({ error: error.message })
+  if (!data) return res.status(404).json({ error: 'No user with that email' })
+  res.json(data)
+})
+
 // The collab relay is a raw WebSocket and reads its token from the query
 // string. The browser already holds a Supabase access token; this endpoint
 // simply echoes the verified identity so the client knows the token is good
