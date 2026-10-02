@@ -387,21 +387,31 @@ function CollabEditor({
     loadPopoverThread(parentId)
   }, [popover, popReply, docId, onThreadCreated, loadPopoverThread])
 
-  const addComment = useCallback(async () => {
-    if (!editor) return
+  // Inline new-comment composer (replaces the native window.prompt), shown in
+  // the same white-box style as the thread popover.
+  const [composer, setComposer] = useState<
+    { top: number; left: number; quote: string; text: string } | null
+  >(null)
+
+  const openComposer = useCallback(() => {
+    if (!editor || !bubble) return
     const { from, to } = editor.state.selection
     if (from === to) return
     const quote = editor.state.doc.textBetween(from, to, ' ').slice(0, 80)
-    const text = window.prompt('Add a comment:')
-    if (!text || !text.trim()) return
-
-    // Create the thread server-side first to get a stable id, then anchor the
-    // mark to that id so the DB row and the highlighted span share one key.
-    const created = await comments.add(docId, text.trim(), { quote })
-    editor.chain().focus().setComment(created.id).run()
+    // Anchor the composer where the bubble was.
+    setComposer({ top: bubble.top + 34, left: bubble.left, quote, text: '' })
     setBubble(null)
+  }, [editor, bubble])
+
+  const submitComment = useCallback(async () => {
+    if (!editor || !composer || !composer.text.trim()) return
+    // Create the thread first to get a stable id, then anchor the mark to it so
+    // the DB row and the highlighted span share one key.
+    const created = await comments.add(docId, composer.text.trim(), { quote: composer.quote })
+    editor.chain().focus().setComment(created.id).run()
+    setComposer(null)
     onThreadCreated()
-  }, [editor, docId, onThreadCreated])
+  }, [editor, composer, docId, onThreadCreated])
 
   return (
     <div className="editor-scroll">
@@ -410,10 +420,44 @@ function CollabEditor({
           className="comment-bubble"
           style={{ top: bubble.top, left: bubble.left }}
           onMouseDown={(e) => e.preventDefault()}
-          onClick={addComment}
+          onClick={openComposer}
         >
           💬 Comment
         </button>
+      )}
+      {composer && editable && (
+        <div
+          className="comment-popover comment-composer"
+          style={{ top: composer.top, left: composer.left }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            className="comment-popover-close"
+            onClick={() => setComposer(null)}
+            aria-label="Cancel"
+          >
+            ✕
+          </button>
+          {composer.quote && <div className="cp-quote">“{composer.quote}”</div>}
+          <textarea
+            className="cp-reply-input"
+            autoFocus
+            rows={3}
+            value={composer.text}
+            placeholder="Add a comment…"
+            onChange={(e) => setComposer((c) => (c ? { ...c, text: e.target.value } : c))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                submitComment()
+              }
+              if (e.key === 'Escape') setComposer(null)
+            }}
+          />
+          <button className="cp-reply-btn" disabled={!composer.text.trim()} onClick={submitComment}>
+            Comment
+          </button>
+        </div>
       )}
       {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} className={`editor-content font-${font}`} />

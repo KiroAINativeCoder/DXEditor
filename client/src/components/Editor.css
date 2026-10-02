@@ -169,6 +169,14 @@
 .cp-author { font-size: 12px; font-weight: 600; color: #1f2328; }
 .cp-body { font-size: 13px; color: #3a3f45; margin-top: 2px; white-space: pre-wrap; }
 
+.cp-quote {
+  font-size: 12px;
+  color: #8a8f96;
+  font-style: italic;
+  margin: 0 0 8px;
+  padding-right: 14px;
+}
+
 .cp-reply-box { margin-top: 8px; }
 .cp-reply-input {
   width: 100%;
