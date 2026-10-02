@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import Sidebar from './components/Sidebar'
 import Editor from './components/Editor'
+import Home from './components/Home'
 import Auth from './components/Auth'
 import ShareDialog from './components/ShareDialog'
 import { auth, docs, type User, type DocDetail } from './lib/api'
+import { pushRecent } from './lib/recent'
 import './App.css'
 
 // Read the current document id from the URL (/doc/:id), or null for home (/).
@@ -54,7 +56,11 @@ export default function App() {
     let cancelled = false
     docs
       .get(selectedId)
-      .then((d) => !cancelled && setDetail(d))
+      .then((d) => {
+        if (cancelled) return
+        setDetail(d)
+        pushRecent(d.id)
+      })
       .catch(() => {
         if (cancelled) return
         // Unknown / inaccessible id in the URL — fall back to home.
@@ -71,6 +77,12 @@ export default function App() {
     setUser(null)
     navigate(null)
     setDetail(null)
+  }
+
+  async function newDocument() {
+    const doc = await docs.create('Untitled document')
+    setRefreshKey((k) => k + 1)
+    navigate(doc.id)
   }
 
   const canShare = detail && (detail.role === 'OWNER' || detail.role === 'MANAGER')
@@ -121,7 +133,12 @@ export default function App() {
               onTitleSaved={() => setRefreshKey((k) => k + 1)}
             />
           ) : (
-            <div className="app-placeholder">Select a document, or create one from the sidebar.</div>
+            <Home
+              userName={user.name || user.email}
+              refreshKey={refreshKey}
+              onOpen={(id) => navigate(id)}
+              onNewDoc={newDocument}
+            />
           )}
         </main>
       </div>
