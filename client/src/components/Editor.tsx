@@ -146,6 +146,41 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
 
   useEffect(() => setTitle(initialTitle), [initialTitle, docId])
 
+  // Derive the document title from the FIRST SENTENCE of the body (Quip/Notion
+  // style). Whenever the editor content changes, take the first non-empty block,
+  // trim it to the first sentence (or a sensible length), and use that as the
+  // title — persisted with the same debounced save. The title field becomes a
+  // read-only reflection of the doc's opening line.
+  useEffect(() => {
+    if (!ed || !canEdit) return
+    const derive = () => {
+      // First non-empty top-level block's text.
+      let firstLine = ''
+      ed.state.doc.descendants((node) => {
+        if (firstLine) return false
+        if (node.isTextblock) {
+          const t = node.textContent.trim()
+          if (t) firstLine = t
+          return false
+        }
+        return true
+      })
+      // First sentence: cut at . ? ! (keeping it), else cap length.
+      let next = firstLine
+      const m = firstLine.match(/^.*?[.?!](\s|$)/)
+      if (m) next = m[0].trim()
+      next = next.slice(0, 120).trim()
+      const derived = next || 'Untitled document'
+      if (derived !== title) onTitleChange(derived)
+    }
+    derive()
+    ed.on('update', derive)
+    return () => {
+      ed.off('update', derive)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ed, canEdit])
+
   function onTitleChange(next: string) {
     if (!canEdit) return
     setTitle(next)
@@ -164,18 +199,15 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
             className="doc-title-input"
             value={title}
             placeholder="Untitled document"
-            onChange={(e) => onTitleChange(e.target.value)}
-            readOnly={!canEdit}
-            aria-label="Document title"
+            readOnly
+            title="The title follows the first line of the document"
+            aria-label="Document title (from first line)"
           />
           <div className="doc-menu-row" role="menubar" aria-label="Document menus">
             <Menu
               label="Document"
               items={[
-                { label: 'Rename…', disabled: !canEdit, onClick: () => {
-                    const n = window.prompt('Rename document', title)
-                    if (n && n.trim()) onTitleChange(n.trim())
-                  } },
+                { label: 'Title follows the first line', disabled: true },
               ]}
             />
             <Menu
