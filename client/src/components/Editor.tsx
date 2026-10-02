@@ -468,46 +468,52 @@ function CollabEditor({
           style={{ top: popover.top, left: popover.left }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button className="comment-popover-close" onClick={() => setPopover(null)} aria-label="Close">
-            ✕
-          </button>
+          <div className="cp-head">
+            <span className="cp-title">Comments</span>
+            <button className="cp-close-btn" onClick={() => setPopover(null)}>
+              Close
+            </button>
+          </div>
           {!popover.thread ? (
             <div className="comment-popover-empty">Loading…</div>
           ) : (
             <>
-              <div className="comment-popover-entry">
-                <span className="cp-author">
-                  {popover.thread.author.name || popover.thread.author.email}
-                </span>
-                <div className="cp-body">{popover.thread.body}</div>
+              <div className="cp-entries">
+                <CommentEntry
+                  name={popover.thread.author.name || popover.thread.author.email}
+                  when={popover.thread.created_at}
+                  body={popover.thread.body}
+                />
+                {popover.thread.replies.map((r) => (
+                  <CommentEntry
+                    key={r.id}
+                    name={r.author.name || r.author.email}
+                    when={r.created_at}
+                    body={r.body}
+                  />
+                ))}
               </div>
-              {popover.thread.replies.map((r) => (
-                <div key={r.id} className="comment-popover-entry cp-reply">
-                  <span className="cp-author">{r.author.name || r.author.email}</span>
-                  <div className="cp-body">{r.body}</div>
-                </div>
-              ))}
               {editable && (
-                <div className="cp-reply-box">
+                <div className="cp-footer">
                   <textarea
-                    className="cp-reply-input"
+                    className="cp-footer-input"
                     value={popReply}
-                    placeholder="Reply…"
-                    rows={2}
+                    placeholder="Type a message"
+                    rows={1}
                     onChange={(e) => setPopReply(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                      if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault()
                         addPopoverReply()
                       }
                     }}
                   />
                   <button
-                    className="cp-reply-btn"
+                    className="cp-send-btn"
                     disabled={!popReply.trim()}
                     onClick={addPopoverReply}
                   >
-                    Reply
+                    Send
                   </button>
                 </div>
               )}
@@ -515,6 +521,49 @@ function CollabEditor({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// Relative time like "7m", "2h", "3d" (falls back to a date for older items).
+function relTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(diff / 60000)
+  if (m < 1) return 'Now'
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h`
+  const d = Math.floor(h / 24)
+  if (d < 7) return `${d}d`
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function initials(name: string) {
+  const parts = name.replace(/@.*/, '').trim().split(/[\s.]+/).filter(Boolean)
+  if (!parts.length) return name.slice(0, 2).toUpperCase()
+  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase()
+}
+
+// Stable-ish color from the name, for the avatar circle.
+function avatarColor(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360
+  return `hsl(${h} 55% 55%)`
+}
+
+function CommentEntry({ name, when, body }: { name: string; when: string; body: string }) {
+  return (
+    <div className="cp-entry">
+      <span className="cp-avatar" style={{ background: avatarColor(name) }}>
+        {initials(name)}
+      </span>
+      <div className="cp-entry-main">
+        <div className="cp-entry-head">
+          <span className="cp-name">{name}</span>
+          <span className="cp-when">· {relTime(when)}</span>
+        </div>
+        <div className="cp-text">{body}</div>
+      </div>
     </div>
   )
 }
