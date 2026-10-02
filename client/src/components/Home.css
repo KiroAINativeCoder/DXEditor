@@ -1,0 +1,79 @@
+.home {
+  flex: 1;
+  overflow-y: auto;
+  background: #f7f7f5;
+}
+.home-inner {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 40px 80px;
+}
+
+.home-header { margin-bottom: 28px; }
+.home-greeting { font-size: 28px; font-weight: 700; color: #1f2328; margin: 0; }
+.home-sub { font-size: 14px; color: #8a8f96; margin: 6px 0 0; }
+
+.home-actions { display: flex; gap: 12px; margin-bottom: 36px; }
+.home-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e0ddd8;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #3a3f45;
+  cursor: pointer;
+}
+.home-action:hover { background: #f0efec; }
+.home-action.primary { background: #2567f4; color: #fff; border-color: #2567f4; }
+.home-action.primary:hover { background: #1a56da; }
+.ha-icon { font-size: 16px; }
+
+.home-section { margin-bottom: 32px; }
+.home-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8a8f96;
+  margin: 0 0 12px;
+}
+.home-empty { color: #8a8f96; font-size: 14px; }
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.home-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  border: 1px solid #e6e6e3;
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: box-shadow 0.12s, border-color 0.12s;
+}
+.home-card:hover { border-color: #c3d4ff; box-shadow: 0 4px 14px rgba(37, 103, 244, 0.1); }
+.hc-title { font-size: 15px; font-weight: 600; color: #1f2328; }
+.hc-meta { font-size: 12px; color: #a0a4ab; }
+
+.home-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #e6e6e3;
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+}
+.hf-name { font-size: 15px; font-weight: 600; color: #1f2328; }
+.hf-count { font-size: 12px; color: #a0a4ab; }

@@ -152,3 +152,12 @@
   cursor: pointer;
 }
 .doc-item:hover .doc-move { opacity: 1; }
+
+/* Drag & drop */
+.doc-item.is-dragging { opacity: 0.45; }
+.folder-head.is-droptarget {
+  background: #e4ecff;
+  outline: 2px dashed #7fa6ff;
+  outline-offset: -2px;
+  color: #1a52d6;
+}

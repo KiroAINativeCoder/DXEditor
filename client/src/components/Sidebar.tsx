@@ -13,6 +13,8 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
   const [items, setItems] = useState<DocMeta[]>([])
   const [folderList, setFolderList] = useState<Folder[]>([])
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null) // folder id or '__unfiled'
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,7 +27,6 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
       const fl = await foldersApi.list().catch(() => [] as Folder[])
       setFolderList(fl)
       setError(null)
-      if (!selectedId && list.length) onSelect(list[0].id)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load documents')
     } finally {
@@ -79,6 +80,21 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
     await load()
   }
 
+  // --- Drag & drop: drag a doc row onto a folder (or Unfiled) to move it. ---
+  function onDropTo(folderKey: string | null, e: React.DragEvent) {
+    e.preventDefault()
+    const id = dragId || e.dataTransfer.getData('text/plain')
+    setDropTarget(null)
+    setDragId(null)
+    if (!id) return
+    moveDoc(id, folderKey)
+  }
+  function allowDrop(key: string, e: React.DragEvent) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dropTarget !== key) setDropTarget(key)
+  }
+
   function toggle(key: string) {
     setCollapsed((c) => ({ ...c, [key]: !c[key] }))
   }
@@ -90,7 +106,14 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
   function DocRow({ d }: { d: DocMeta }) {
     return (
       <li
-        className={`doc-item${d.id === selectedId ? ' is-selected' : ''}`}
+        className={`doc-item${d.id === selectedId ? ' is-selected' : ''}${dragId === d.id ? ' is-dragging' : ''}`}
+        draggable
+        onDragStart={(e) => {
+          setDragId(d.id)
+          e.dataTransfer.effectAllowed = 'move'
+          e.dataTransfer.setData('text/plain', d.id)
+        }}
+        onDragEnd={() => { setDragId(null); setDropTarget(null) }}
         onClick={() => onSelect(d.id)}
       >
         <span className="doc-item-title">{d.title || 'Untitled document'}</span>
@@ -135,7 +158,13 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
             const isCollapsed = collapsed[f.id]
             return (
               <div key={f.id} className="folder">
-                <div className="folder-head" onClick={() => toggle(f.id)}>
+                <div
+                  className={`folder-head${dropTarget === f.id ? ' is-droptarget' : ''}`}
+                  onClick={() => toggle(f.id)}
+                  onDragOver={(e) => allowDrop(f.id, e)}
+                  onDragLeave={() => dropTarget === f.id && setDropTarget(null)}
+                  onDrop={(e) => onDropTo(f.id, e)}
+                >
                   <span className="folder-caret">{isCollapsed ? '▸' : '▾'}</span>
                   <span className="folder-name">📁 {f.name}</span>
                   <span className="folder-count">{docsHere.length}</span>
@@ -156,7 +185,13 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
 
           {/* Unfiled */}
           <div className="folder">
-            <div className="folder-head" onClick={() => toggle('__unfiled')}>
+            <div
+              className={`folder-head${dropTarget === '__unfiled' ? ' is-droptarget' : ''}`}
+              onClick={() => toggle('__unfiled')}
+              onDragOver={(e) => allowDrop('__unfiled', e)}
+              onDragLeave={() => dropTarget === '__unfiled' && setDropTarget(null)}
+              onDrop={(e) => onDropTo(null, e)}
+            >
               <span className="folder-caret">{collapsed['__unfiled'] ? '▸' : '▾'}</span>
               <span className="folder-name">Unfiled</span>
               <span className="folder-count">{docsIn(null).length}</span>
