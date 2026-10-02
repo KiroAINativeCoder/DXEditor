@@ -1,50 +1,38 @@
 import './env.js'
 import http from 'http'
 import { WebSocketServer } from 'ws'
-import * as Y from 'yjs'
-import { LeveldbPersistence } from 'y-leveldb'
 import { verifyToken } from './auth.js'
 import { getAccess } from './access.js'
-// y-websocket 1.5.4 ships the battle-tested connection handler. Its package
-// `exports` map doesn't expose the subpath, so import the file by relative path.
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore -- no type declarations for the bin utils
-import { setupWSConnection, setPersistence } from '../node_modules/y-websocket/bin/utils.js'
 
 /**
  * DXEditor collaboration relay.
  *
  * Uses y-websocket's official setupWSConnection (correct Yjs sync + awareness
- * handshake) with LevelDB persistence via setPersistence. We authenticate and
- * authorize on the HTTP upgrade (RLS can't guard the Yjs content layer), then
- * hand the socket to setupWSConnection with the docName = URL path.
+ * handshake) AND its built-in LevelDB persistence. Persistence is enabled by
+ * the YPERSISTENCE env var, which the utils module reads AT IMPORT TIME and
+ * wires with its OWN bundled Yjs instance. (Supplying our own setPersistence
+ * with our Yjs import silently failed to store updates, because utils creates
+ * docs with its Yjs and our Y.encodeStateAsUpdate operated on a different
+ * instance — a no-op. Letting utils own both avoids that mismatch.)
+ *
+ * We authenticate + authorize on the HTTP upgrade (RLS can't guard the Yjs
+ * content layer), then hand the socket to setupWSConnection.
  */
 
 const PORT = Number(process.env.COLLAB_PORT ?? 4001)
-const DB_DIR = process.env.YJS_DB_DIR ?? './y-leveldb'
+// Point y-websocket's built-in persistence at our LevelDB dir. MUST be set
+// before importing bin/utils.js (it reads the env var at module load).
+process.env.YPERSISTENCE = process.env.YJS_DB_DIR ?? './y-leveldb'
 
-const ldb = new LeveldbPersistence(DB_DIR)
-
-setPersistence({
-  provider: ldb,
-  bindState: async (docName: string, ydoc: Y.Doc) => {
-    const persisted = await ldb.getYDoc(docName)
-    if (persisted) Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persisted))
-    ydoc.on('update', (update: Uint8Array) => {
-      ldb.storeUpdate(docName, update)
-    })
-  },
-  writeState: async (docName: string, ydoc: Y.Doc) => {
-    await ldb.storeUpdate(docName, Y.encodeStateAsUpdate(ydoc))
-  },
-})
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore -- no type declarations for the bin utils
+const { setupWSConnection } = await import('../node_modules/y-websocket/bin/utils.js')
 
 const server = http.createServer((_req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' })
   res.end('DXEditor collaboration server\n')
 })
 
-// noServer: we authenticate on the upgrade before accepting the socket.
 const wss = new WebSocketServer({ noServer: true })
 
 server.on('upgrade', async (req, socket, head) => {
@@ -70,7 +58,6 @@ server.on('upgrade', async (req, socket, head) => {
     console.log(`[collab] accept ${docName}: user ${session.id} role=${access.role}`)
 
     wss.handleUpgrade(req, socket, head, (conn) => {
-      // setupWSConnection reads the room name from the URL; pass docName explicitly.
       setupWSConnection(conn, req, { docName, gc: true })
     })
   } catch (err) {
