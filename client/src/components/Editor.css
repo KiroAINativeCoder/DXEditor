@@ -82,7 +82,7 @@
   flex: 1;
   position: relative; /* anchor for the floating comment bubble */
   overflow-y: auto;
-  padding: 0 16px 120px; /* no top padding: the sticky toolbar sits at the top */
+  padding: 0 0 120px; /* full-width so the sticky toolbar spans edge-to-edge; content centers itself */
 }
 
 /* Top spacing for the page content lives below the sticky toolbar. */

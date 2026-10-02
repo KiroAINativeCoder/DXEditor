@@ -45,10 +45,9 @@ export default function VersionPanel({ docId, canEdit, snapshot, applyUpdate, on
       setError('Document not ready yet')
       return
     }
-    const label = window.prompt('Name this version (optional):') ?? undefined
     setBusy(true)
     try {
-      await versionsApi.create(docId, update, label || undefined)
+      await versionsApi.create(docId, update)
       await load()
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to save version')

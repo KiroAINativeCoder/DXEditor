@@ -205,6 +205,13 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
 
         <div className="topbar-right">
           <button
+            className={`comments-btn${showVersions ? ' is-active' : ''}`}
+            onClick={() => setShowVersions((v) => !v)}
+            title="Version history"
+          >
+            🕑 Versions
+          </button>
+          <button
             className={`comments-btn${showComments ? ' is-active' : ''}`}
             onClick={() => setShowComments((v) => !v)}
             title="Comments"
