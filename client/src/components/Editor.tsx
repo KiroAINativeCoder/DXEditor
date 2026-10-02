@@ -315,14 +315,30 @@ function CollabEditor({
 
   // Clicking commented text opens a small popover showing that thread.
   const [popover, setPopover] = useState<
-    { top: number; left: number; thread: ThreadT | null } | null
+    { top: number; left: number; commentId: string; thread: ThreadT | null } | null
   >(null)
+  const [popReply, setPopReply] = useState('')
+
+  const loadPopoverThread = useCallback(
+    async (commentId: string) => {
+      try {
+        const threads = await comments.list(docId)
+        const t = threads.find((x) => x.id === commentId) ?? null
+        setPopover((p) => (p ? { ...p, thread: t } : p))
+      } catch {
+        /* ignore */
+      }
+    },
+    [docId],
+  )
 
   useEffect(() => {
     const scroll = document.querySelector('.editor-scroll')
     if (!scroll) return
     const onClick = async (e: Event) => {
       const target = e.target as HTMLElement
+      // Ignore clicks inside the popover itself.
+      if (target.closest('.comment-popover')) return
       const mark = target.closest<HTMLElement>('[data-comment-id]')
       if (!mark) {
         setPopover(null)
@@ -331,24 +347,39 @@ function CollabEditor({
       const commentId = mark.getAttribute('data-comment-id')!
       const rect = mark.getBoundingClientRect()
       const scrollRect = scroll.getBoundingClientRect()
+      setPopReply('')
       // Position just below the clicked mark, relative to the scroll container.
       setPopover({
         top: rect.bottom - scrollRect.top + scroll.scrollTop + 6,
         left: rect.left - scrollRect.left + scroll.scrollLeft,
+        commentId,
         thread: null,
       })
-      // Load the thread (root comment with that id) + its replies.
+      // Also surface the thread in the side panel (shows resolved too).
+      onThreadCreated()
+      loadPopoverThread(commentId)
+    }
+    scroll.addEventListener('click', onClick)
+    return () => scroll.removeEventListener('click', onClick)
+  }, [docId, loadPopoverThread, onThreadCreated])
+
+  // Add a reply to the thread shown in the popover. Reopens it if resolved so
+  // it reappears in the side panel, then refreshes both views.
+  const addPopoverReply = useCallback(async () => {
+    if (!popover || !popReply.trim()) return
+    const parentId = popover.commentId
+    await comments.add(docId, popReply.trim(), { parentId })
+    if (popover.thread?.resolved) {
       try {
-        const threads = await comments.list(docId)
-        const t = threads.find((x) => x.id === commentId) ?? null
-        setPopover((p) => (p ? { ...p, thread: t } : p))
+        await comments.setResolved(docId, parentId, false)
       } catch {
         /* ignore */
       }
     }
-    scroll.addEventListener('click', onClick)
-    return () => scroll.removeEventListener('click', onClick)
-  }, [docId])
+    setPopReply('')
+    onThreadCreated()
+    loadPopoverThread(parentId)
+  }, [popover, popReply, docId, onThreadCreated, loadPopoverThread])
 
   const addComment = useCallback(async () => {
     if (!editor) return
@@ -406,6 +437,30 @@ function CollabEditor({
                   <div className="cp-body">{r.body}</div>
                 </div>
               ))}
+              {editable && (
+                <div className="cp-reply-box">
+                  <textarea
+                    className="cp-reply-input"
+                    value={popReply}
+                    placeholder="Reply…"
+                    rows={2}
+                    onChange={(e) => setPopReply(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault()
+                        addPopoverReply()
+                      }
+                    }}
+                  />
+                  <button
+                    className="cp-reply-btn"
+                    disabled={!popReply.trim()}
+                    onClick={addPopoverReply}
+                  >
+                    Reply
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>

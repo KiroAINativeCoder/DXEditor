@@ -169,6 +169,31 @@
 .cp-author { font-size: 12px; font-weight: 600; color: #1f2328; }
 .cp-body { font-size: 13px; color: #3a3f45; margin-top: 2px; white-space: pre-wrap; }
 
+.cp-reply-box { margin-top: 8px; }
+.cp-reply-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e0ddd8;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+.cp-reply-input:focus { outline: none; border-color: #2567f4; }
+.cp-reply-btn {
+  margin-top: 6px;
+  background: #2567f4;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cp-reply-btn:hover:not(:disabled) { background: #1a56da; }
+.cp-reply-btn:disabled { opacity: 0.5; cursor: default; }
+
 /* Collaboration status (bottom-right) */
 .collab-status {
   position: fixed;
