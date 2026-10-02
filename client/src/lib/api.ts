@@ -83,6 +83,28 @@ async function sync(name?: string) {
   }
 }
 
+/**
+ * Ensure the caller's app_user row exists (the FK target for document.owner_id).
+ * Normally the auth.users DB trigger creates it, but a brand-new user acting
+ * immediately after confirming (before any trigger/sync ran) can hit a FK
+ * violation on their first insert. This provisions the row on demand via the
+ * server's service-role sync endpoint. Returns true if provisioning succeeded.
+ */
+async function ensureAppUser(): Promise<boolean> {
+  try {
+    const token = await accessToken()
+    if (!token) return false
+    const res = await fetch(`${BASE}/api/auth/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({}),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 // -------------------------------------------------------------- documents
 // All reads/writes go straight to Supabase; RLS filters to owned+shared rows.
 
@@ -125,14 +147,20 @@ export const docs = {
 
   create: async (title?: string): Promise<DocDetail> => {
     const uid = await myId()
+    const row = { title: title?.trim() || 'Untitled document', owner_id: uid }
+
     // Insert WITHOUT return=representation: an inline INSERT…RETURNING forces a
     // SELECT-policy evaluation on the brand-new row in the same statement, which
     // was failing RLS. A plain insert passes the insert policy cleanly; we then
-    // read the row back with a normal select (the SELECT policy permits owned
-    // docs), newest-first to grab the one we just made.
-    const { error } = await supabase
-      .from('document')
-      .insert({ title: title?.trim() || 'Untitled document', owner_id: uid })
+    // read the row back with a normal select.
+    let { error } = await supabase.from('document').insert(row)
+
+    // A brand-new user (e.g. just after confirming their email) may not have an
+    // app_user row yet, so owner_id fails the foreign key. Provision it and retry.
+    if (error && /foreign key|owner_id_fkey|23503/i.test(error.message)) {
+      await ensureAppUser()
+      ;({ error } = await supabase.from('document').insert(row))
+    }
     if (error) throw new ApiError(403, error.message)
 
     const { data, error: selErr } = await supabase
