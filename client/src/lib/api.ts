@@ -125,12 +125,24 @@ export const docs = {
 
   create: async (title?: string): Promise<DocDetail> => {
     const uid = await myId()
-    const { data, error } = await supabase
+    // Insert WITHOUT return=representation: an inline INSERT…RETURNING forces a
+    // SELECT-policy evaluation on the brand-new row in the same statement, which
+    // was failing RLS. A plain insert passes the insert policy cleanly; we then
+    // read the row back with a normal select (the SELECT policy permits owned
+    // docs), newest-first to grab the one we just made.
+    const { error } = await supabase
       .from('document')
       .insert({ title: title?.trim() || 'Untitled document', owner_id: uid })
+    if (error) throw new ApiError(403, error.message)
+
+    const { data, error: selErr } = await supabase
+      .from('document')
       .select('id,title,owner_id,created_at,updated_at')
+      .eq('owner_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single()
-    if (error) throw new ApiError(500, error.message)
+    if (selErr || !data) throw new ApiError(500, selErr?.message ?? 'Created but could not load the document')
     return { ...data, isOwner: true, role: 'OWNER' }
   },
 
@@ -207,19 +219,28 @@ export const comments = {
     extra?: { anchorId?: string; quote?: string; parentId?: string },
   ): Promise<Comment> => {
     const uid = await myId()
-    const { data, error } = await supabase
-      .from('comment')
-      .insert({
-        document_id: docId,
-        author_id: uid,
-        body,
-        anchor_id: extra?.parentId ? null : (extra?.anchorId ?? null),
-        quote: extra?.parentId ? null : (extra?.quote ?? null),
-        parent_id: extra?.parentId ?? null,
-      })
-      .select('*, author:app_user(id,email,name)')
-      .single()
+    // Plain insert (no inline RETURNING): an INSERT…RETURNING forces a
+    // SELECT-policy evaluation on the new row in the same statement, which RLS
+    // rejects. Insert, then read the row back with a normal select.
+    const { error } = await supabase.from('comment').insert({
+      document_id: docId,
+      author_id: uid,
+      body,
+      anchor_id: extra?.parentId ? null : (extra?.anchorId ?? null),
+      quote: extra?.parentId ? null : (extra?.quote ?? null),
+      parent_id: extra?.parentId ?? null,
+    })
     if (error) throw new ApiError(403, error.message)
+
+    const { data, error: selErr } = await supabase
+      .from('comment')
+      .select('*, author:app_user(id,email,name)')
+      .eq('document_id', docId)
+      .eq('author_id', uid)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (selErr || !data) throw new ApiError(500, selErr?.message ?? 'Comment created but could not load it')
     return data as unknown as Comment
   },
 
