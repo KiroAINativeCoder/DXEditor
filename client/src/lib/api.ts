@@ -1,44 +1,31 @@
+import { supabase, accessToken } from './supabase'
+
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
 export type User = { id: string; email: string; name: string | null }
+export type Role = 'OWNER' | 'EDITOR' | 'MANAGER' | 'VIEWER'
 
 export type DocMeta = {
   id: string
   title: string
-  ownerId: string
+  owner_id: string
   isOwner: boolean
-  createdAt: string
-  updatedAt: string
+  created_at: string
+  updated_at: string
 }
-
-export type Role = 'OWNER' | 'EDITOR' | 'VIEWER'
 export type DocDetail = DocMeta & { role: Role }
-export type Share = { id: string; role: 'EDITOR' | 'VIEWER'; user: User }
-
+export type Share = { id: string; role: 'EDITOR' | 'VIEWER' | 'MANAGER'; user: User }
 export type Comment = {
   id: string
   body: string
-  anchorId: string | null
+  anchor_id: string | null
   quote: string | null
-  parentId: string | null
+  parent_id: string | null
   resolved: boolean
-  createdAt: string
+  created_at: string
   author: User
 }
 export type Thread = Comment & { replies: Comment[] }
-
-async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let msg = `${res.status}`
-    try {
-      msg = (await res.json()).error ?? msg
-    } catch {
-      /* noop */
-    }
-    throw new ApiError(res.status, msg)
-  }
-  return (res.status === 204 ? undefined : res.json()) as Promise<T>
-}
 
 export class ApiError extends Error {
   status: number
@@ -48,55 +35,186 @@ export class ApiError extends Error {
   }
 }
 
-const opts = (method: string, body?: unknown): RequestInit => ({
-  method,
-  credentials: 'include', // send/receive the session cookie
-  headers: body ? { 'Content-Type': 'application/json' } : undefined,
-  body: body ? JSON.stringify(body) : undefined,
-})
+// ------------------------------------------------------------------- auth
+export const auth = {
+  signUp: async (email: string, password: string, name?: string) => {
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) throw new ApiError(400, error.message)
+    await sync(name)
+    return data.user
+  },
+  signIn: async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw new ApiError(401, error.message)
+    await sync()
+    return data.user
+  },
+  signOut: () => supabase.auth.signOut(),
+  current: async (): Promise<User | null> => {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return null
+    return { id: data.user.id, email: data.user.email ?? '', name: null }
+  },
+}
 
-export const api = {
-  // --- auth ---
-  register: (email: string, password: string, name?: string) =>
-    fetch(`${BASE}/api/auth/register`, opts('POST', { email, password, name })).then(json<User>),
-  login: (email: string, password: string) =>
-    fetch(`${BASE}/api/auth/login`, opts('POST', { email, password })).then(json<User>),
-  logout: () => fetch(`${BASE}/api/auth/logout`, opts('POST')).then(json<void>),
-  me: () => fetch(`${BASE}/api/auth/me`, opts('GET')).then(json<User>),
-  wsToken: () => fetch(`${BASE}/api/auth/ws-token`, opts('GET')).then(json<{ token: string }>),
+/** Provision/refresh our app_user row (FK target for docs/comments). */
+async function sync(name?: string) {
+  const token = await accessToken()
+  if (!token) return
+  await fetch(`${BASE}/api/auth/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ name }),
+  })
+}
 
-  // --- documents ---
-  list: () => fetch(`${BASE}/api/documents`, opts('GET')).then(json<DocMeta[]>),
-  get: (id: string) => fetch(`${BASE}/api/documents/${id}`, opts('GET')).then(json<DocDetail>),
-  create: (title?: string) =>
-    fetch(`${BASE}/api/documents`, opts('POST', { title })).then(json<DocDetail>),
-  updateTitle: (id: string, title: string) =>
-    fetch(`${BASE}/api/documents/${id}`, opts('PUT', { title })).then(json<DocMeta>),
-  remove: (id: string) => fetch(`${BASE}/api/documents/${id}`, opts('DELETE')).then(json<void>),
+// -------------------------------------------------------------- documents
+// All reads/writes go straight to Supabase; RLS filters to owned+shared rows.
 
-  // --- sharing ---
-  listShares: (id: string) =>
-    fetch(`${BASE}/api/documents/${id}/shares`, opts('GET')).then(json<Share[]>),
-  addShare: (id: string, email: string, role: 'EDITOR' | 'VIEWER') =>
-    fetch(`${BASE}/api/documents/${id}/shares`, opts('POST', { email, role })).then(json<Share>),
-  removeShare: (id: string, userId: string) =>
-    fetch(`${BASE}/api/documents/${id}/shares/${userId}`, opts('DELETE')).then(json<void>),
+async function myId(): Promise<string> {
+  const { data } = await supabase.auth.getUser()
+  return data.user?.id ?? ''
+}
 
-  // --- comments ---
-  listComments: (id: string) =>
-    fetch(`${BASE}/api/documents/${id}/comments`, opts('GET')).then(json<Thread[]>),
-  addComment: (
-    id: string,
+export const docs = {
+  list: async (): Promise<DocMeta[]> => {
+    const uid = await myId()
+    const { data, error } = await supabase
+      .from('document')
+      .select('id,title,owner_id,created_at,updated_at')
+      .order('updated_at', { ascending: false })
+    if (error) throw new ApiError(500, error.message)
+    return (data ?? []).map((d) => ({ ...d, isOwner: d.owner_id === uid }))
+  },
+
+  get: async (id: string): Promise<DocDetail> => {
+    const uid = await myId()
+    const { data, error } = await supabase
+      .from('document')
+      .select('id,title,owner_id,created_at,updated_at')
+      .eq('id', id)
+      .maybeSingle()
+    if (error || !data) throw new ApiError(404, 'Document not found')
+    let role: Role = data.owner_id === uid ? 'OWNER' : 'VIEWER'
+    if (data.owner_id !== uid) {
+      const { data: m } = await supabase
+        .from('membership')
+        .select('role')
+        .eq('document_id', id)
+        .eq('user_id', uid)
+        .maybeSingle()
+      if (m) role = m.role as Role
+    }
+    return { ...data, isOwner: data.owner_id === uid, role }
+  },
+
+  create: async (title?: string): Promise<DocDetail> => {
+    const uid = await myId()
+    const { data, error } = await supabase
+      .from('document')
+      .insert({ title: title?.trim() || 'Untitled document', owner_id: uid })
+      .select('id,title,owner_id,created_at,updated_at')
+      .single()
+    if (error) throw new ApiError(500, error.message)
+    return { ...data, isOwner: true, role: 'OWNER' }
+  },
+
+  updateTitle: async (id: string, title: string) => {
+    const { error } = await supabase.from('document').update({ title }).eq('id', id)
+    if (error) throw new ApiError(403, error.message)
+  },
+
+  remove: async (id: string) => {
+    const { error } = await supabase.from('document').delete().eq('id', id)
+    if (error) throw new ApiError(403, error.message)
+  },
+}
+
+// ---------------------------------------------------------------- sharing
+export const shares = {
+  list: async (docId: string): Promise<Share[]> => {
+    const { data, error } = await supabase
+      .from('membership')
+      .select('id,role,user:app_user(id,email,name)')
+      .eq('document_id', docId)
+    if (error) throw new ApiError(403, error.message)
+    return (data ?? []) as unknown as Share[]
+  },
+
+  add: async (docId: string, email: string, role: Role) => {
+    // Resolve the target user id by email (app_user is readable per RLS only
+    // for collaborators; sharing with a brand-new email requires that the user
+    // has signed up at least once — same constraint as before).
+    const { data: target, error: e1 } = await supabase
+      .from('app_user')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle()
+    if (e1 || !target) throw new ApiError(404, 'No user with that email')
+    const { error } = await supabase
+      .from('membership')
+      .upsert(
+        { document_id: docId, user_id: target.id, role },
+        { onConflict: 'document_id,user_id' },
+      )
+    if (error) throw new ApiError(403, error.message)
+  },
+
+  remove: async (docId: string, userId: string) => {
+    const { error } = await supabase
+      .from('membership')
+      .delete()
+      .eq('document_id', docId)
+      .eq('user_id', userId)
+    if (error) throw new ApiError(403, error.message)
+  },
+}
+
+// --------------------------------------------------------------- comments
+export const comments = {
+  list: async (docId: string): Promise<Thread[]> => {
+    const { data, error } = await supabase
+      .from('comment')
+      .select('*, author:app_user(id,email,name)')
+      .eq('document_id', docId)
+      .order('created_at', { ascending: true })
+    if (error) throw new ApiError(403, error.message)
+    const rows = (data ?? []) as unknown as Comment[]
+    const roots = rows.filter((c) => !c.parent_id).map((r) => ({ ...r, replies: [] as Comment[] }))
+    const byId = new Map(roots.map((r) => [r.id, r]))
+    for (const c of rows) if (c.parent_id && byId.has(c.parent_id)) byId.get(c.parent_id)!.replies.push(c)
+    return roots
+  },
+
+  add: async (
+    docId: string,
     body: string,
     extra?: { anchorId?: string; quote?: string; parentId?: string },
-  ) =>
-    fetch(`${BASE}/api/documents/${id}/comments`, opts('POST', { body, ...extra })).then(
-      json<Comment>,
-    ),
-  setResolved: (id: string, commentId: string, resolved: boolean) =>
-    fetch(`${BASE}/api/documents/${id}/comments/${commentId}`, opts('PATCH', { resolved })).then(
-      json<Comment>,
-    ),
-  removeComment: (id: string, commentId: string) =>
-    fetch(`${BASE}/api/documents/${id}/comments/${commentId}`, opts('DELETE')).then(json<void>),
+  ): Promise<Comment> => {
+    const uid = await myId()
+    const { data, error } = await supabase
+      .from('comment')
+      .insert({
+        document_id: docId,
+        author_id: uid,
+        body,
+        anchor_id: extra?.parentId ? null : (extra?.anchorId ?? null),
+        quote: extra?.parentId ? null : (extra?.quote ?? null),
+        parent_id: extra?.parentId ?? null,
+      })
+      .select('*, author:app_user(id,email,name)')
+      .single()
+    if (error) throw new ApiError(403, error.message)
+    return data as unknown as Comment
+  },
+
+  setResolved: async (_docId: string, commentId: string, resolved: boolean) => {
+    const { error } = await supabase.from('comment').update({ resolved }).eq('id', commentId)
+    if (error) throw new ApiError(403, error.message)
+  },
+
+  remove: async (_docId: string, commentId: string) => {
+    const { error } = await supabase.from('comment').delete().eq('id', commentId)
+    if (error) throw new ApiError(403, error.message)
+  },
 }
