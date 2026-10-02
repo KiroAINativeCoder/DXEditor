@@ -66,7 +66,9 @@ export default function App() {
           <span className="brand-name">DXEditor</span>
         </div>
         {canShare && (
-          <button className="header-btn" onClick={() => setSharing(true)}>Share</button>
+          <button className="header-btn share-primary" onClick={() => setSharing(true)}>
+            Share
+          </button>
         )}
         {detail && detail.role !== 'OWNER' && (
           <span className="role-badge">{roleLabel}</span>

@@ -123,33 +123,46 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
   return (
     <div className="editor-shell">
       <div className="editor-topbar">
-        <input
-          className="doc-title-input"
-          value={title}
-          placeholder="Untitled document"
-          onChange={(e) => onTitleChange(e.target.value)}
-          readOnly={!canEdit}
-          aria-label="Document title"
-        />
-        <select
-          className="font-picker"
-          value={font}
-          onChange={(e) => changeFont(e.target.value as FontKey)}
-          aria-label="Document font"
-          title="Document font"
-        >
-          {FONTS.map((f) => (
-            <option key={f.key} value={f.key}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-        <button
-          className={`comments-btn${showComments ? ' is-active' : ''}`}
-          onClick={() => setShowComments((v) => !v)}
-        >
-          💬 Comments
-        </button>
+        <div className="title-block">
+          <input
+            className="doc-title-input"
+            value={title}
+            placeholder="Untitled document"
+            onChange={(e) => onTitleChange(e.target.value)}
+            readOnly={!canEdit}
+            aria-label="Document title"
+          />
+          <div className="doc-menu-row" role="menubar" aria-label="Document menus">
+            <span className="doc-menu-item is-active">Document</span>
+            <span className="doc-menu-item">Edit</span>
+            <span className="doc-menu-item">View</span>
+            <span className="doc-menu-item">Insert</span>
+            <span className="doc-menu-item">Format</span>
+          </div>
+        </div>
+
+        <div className="topbar-right">
+          <select
+            className="font-picker"
+            value={font}
+            onChange={(e) => changeFont(e.target.value as FontKey)}
+            aria-label="Document font"
+            title="Document font"
+          >
+            {FONTS.map((f) => (
+              <option key={f.key} value={f.key}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <button
+            className={`comments-btn${showComments ? ' is-active' : ''}`}
+            onClick={() => setShowComments((v) => !v)}
+            title="Comments"
+          >
+            💬 Comments
+          </button>
+        </div>
       </div>
 
       <div className="editor-with-panel">

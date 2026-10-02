@@ -6,24 +6,24 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 8px 16px;
+  padding: 6px 24px;
   background: #ffffff;
   border-bottom: 1px solid #e6e6e3;
 }
 
-.tb-group { display: flex; gap: 2px; }
+.tb-group { display: flex; align-items: center; gap: 2px; }
 
 .tb-sep {
   width: 1px;
-  align-self: stretch;
-  margin: 2px 6px;
+  height: 20px;
+  margin: 0 8px;
   background: #e6e6e3;
 }
 
 .tb-btn {
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
@@ -36,15 +36,31 @@
   justify-content: center;
   transition: background 0.12s, border-color 0.12s;
 }
-
 .tb-btn:hover:not(:disabled) { background: #ecebe8; }
-
 .tb-btn.is-active {
   background: #e4ecff;
   border-color: #c3d4ff;
   color: #1a52d6;
 }
-
 .tb-btn:disabled { opacity: 0.35; cursor: default; }
-
 .tb-btn code { font-size: 12px; background: none; padding: 0; }
+
+/* Paragraph / heading dropdown */
+.tb-block-select {
+  height: 30px;
+  border: 1px solid #e6e6e3;
+  border-radius: 6px;
+  background: #fff;
+  color: #3a3f45;
+  font-size: 13px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.tb-block-select:hover { background: #f6f5f3; }
+
+/* Insert: label group */
+.tb-insert-label {
+  font-size: 13px;
+  color: #8a8f96;
+  margin-right: 4px;
+}

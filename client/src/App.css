@@ -65,6 +65,15 @@
 .header-btn.ghost { border-color: transparent; color: #8a8f96; margin-left: 0; }
 .header-btn.ghost:hover { color: #c23b3b; background: transparent; }
 
+/* Quip-style blue Share button */
+.header-btn.share-primary {
+  margin-left: auto;
+  background: #2567f4;
+  border-color: #2567f4;
+  color: #fff;
+}
+.header-btn.share-primary:hover { background: #1a56da; border-color: #1a56da; }
+
 .role-badge {
   margin-left: auto;
   font-size: 12px;
