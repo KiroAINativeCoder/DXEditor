@@ -221,6 +221,12 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
             currentUserId={currentUserId}
             refreshKey={commentRefresh}
             onFocusAnchor={setFocusAnchor}
+            onResolvedMark={(commentId, resolved) => {
+              // Resolving removes the yellow highlight from the document (the
+              // thread stays in the right pane). Reopening leaves it in the
+              // pane; the span highlight is not restored.
+              if (resolved) ed?.chain().unsetComment(commentId).run()
+            }}
             onClose={() => setShowComments(false)}
           />
         )}

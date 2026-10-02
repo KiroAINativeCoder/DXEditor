@@ -10,6 +10,9 @@ type Props = {
   refreshKey: number
   /** Focus the anchored text in the editor when a thread is clicked. */
   onFocusAnchor: (anchorId: string | null) => void
+  /** Called after a thread's resolved state changes, so the editor can
+   *  add/remove the corresponding highlight. */
+  onResolvedMark?: (commentId: string, resolved: boolean) => void
   onClose: () => void
 }
 
@@ -24,15 +27,21 @@ export default function CommentsPanel({
   currentUserId,
   refreshKey,
   onFocusAnchor,
+  onResolvedMark,
   onClose,
 }: Props) {
   const [threads, setThreads] = useState<Thread[]>([])
   const [replyFor, setReplyFor] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
-  const [showResolved, setShowResolved] = useState(false)
+  // Show resolved by default: resolving removes the document highlight but the
+  // thread must remain visible here.
+  const [showResolved, setShowResolved] = useState(true)
 
   async function load() {
-    setThreads(await commentsApi.list(docId))
+    const t = await commentsApi.list(docId)
+    setThreads(t)
+    // Clear any lingering highlight for threads that are already resolved.
+    for (const thread of t) if (thread.resolved) onResolvedMark?.(thread.id, true)
   }
   useEffect(() => {
     load()
@@ -48,7 +57,9 @@ export default function CommentsPanel({
   }
 
   async function toggleResolved(t: Thread) {
-    await commentsApi.setResolved(docId, t.id, !t.resolved)
+    const next = !t.resolved
+    await commentsApi.setResolved(docId, t.id, next)
+    onResolvedMark?.(t.id, next)
     await load()
   }
 
