@@ -61,9 +61,25 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
     const bin = atob(base64)
     const bytes = new Uint8Array(bin.length)
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-    // Applying a full prior-state update merges it into the CRDT, which brings
-    // the shared doc to include that version's content for all clients.
-    Y.applyUpdate(conn.ydoc, bytes)
+
+    // A Yjs doc is a CRDT: Y.applyUpdate only ADDS state, it can't remove text
+    // written after the snapshot — so a naive apply does not truly revert.
+    // Proper restore = replace the shared XML fragment's content wholesale.
+    // Load the snapshot into a temp doc, then in ONE transaction on the live
+    // doc delete every child of the "default" fragment (TipTap's field) and
+    // insert deep clones of the snapshot's children. The delete+insert is a
+    // real Yjs edit, so it syncs to every client and the editor re-renders.
+    const snap = new Y.Doc()
+    Y.applyUpdate(snap, bytes)
+    const src = snap.getXmlFragment('default')
+    const dst = conn.ydoc.getXmlFragment('default')
+
+    conn.ydoc.transact(() => {
+      if (dst.length > 0) dst.delete(0, dst.length)
+      const clones = src.toArray().map(cloneXml)
+      if (clones.length > 0) dst.insert(0, clones)
+    })
+    snap.destroy()
   }
 
   const [showComments, setShowComments] = useState(false)
@@ -590,6 +606,25 @@ function CollabEditor({
 // author's row from the current reader. Never let that crash the render.
 function authorLabel(author: { name?: string | null; email?: string | null } | null | undefined) {
   return author?.name || author?.email || 'Unknown user'
+}
+
+// Deep-clone a Yjs XML node so it can be inserted into a DIFFERENT Y.Doc. A
+// Yjs type is bound to its own doc, so the snapshot's nodes must be copied
+// (not moved) into the live fragment. Handles element and text (with inline
+// formatting deltas) — the set TipTap/ProseMirror produces (never XmlHook).
+function cloneXml(node: Y.XmlElement | Y.XmlText | Y.XmlHook): Y.XmlElement | Y.XmlText {
+  if (node instanceof Y.XmlElement) {
+    const el = new Y.XmlElement(node.nodeName)
+    const attrs = node.getAttributes()
+    for (const k of Object.keys(attrs)) el.setAttribute(k, attrs[k] as string)
+    const children = node.toArray().map(cloneXml)
+    if (children.length > 0) el.insert(0, children)
+    return el
+  }
+  // Text node (also the fallback) — toDelta preserves text + formatting.
+  const t = new Y.XmlText()
+  t.applyDelta((node as Y.XmlText).toDelta())
+  return t
 }
 
 // Relative time like "7m", "2h", "3d" (falls back to a date for older items).
