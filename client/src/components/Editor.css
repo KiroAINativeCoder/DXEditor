@@ -240,7 +240,7 @@
 .cp-send-btn:hover:not(:disabled) { background: #1a56da; }
 .cp-send-btn:disabled { opacity: 0.5; cursor: default; }
 
-/* New-comment composer reuses the popover shell + input/button styles */
+/* New-comment composer reuses the popover shell + header/footer styles */
 .cp-quote {
   font-size: 12px;
   color: #8a8f96;
@@ -248,42 +248,6 @@
   margin: 12px 14px 0;
 }
 .comment-composer { padding: 0; }
-.comment-composer .comment-popover-close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  border: none;
-  background: none;
-  color: #adb5bd;
-  cursor: pointer;
-  font-size: 13px;
-  z-index: 1;
-}
-.comment-composer .cp-reply-input {
-  width: calc(100% - 24px);
-  box-sizing: border-box;
-  margin: 12px;
-  border: 1px solid #e0ddd8;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 14px;
-  font-family: inherit;
-  resize: vertical;
-}
-.comment-composer .cp-reply-input:focus { outline: none; border-color: #2567f4; }
-.comment-composer .cp-reply-btn {
-  margin: 0 12px 12px;
-  background: #2567f4;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 7px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.comment-composer .cp-reply-btn:hover:not(:disabled) { background: #1a56da; }
-.comment-composer .cp-reply-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Collaboration status (bottom-right) */
 .collab-status {

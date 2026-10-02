@@ -431,32 +431,33 @@ function CollabEditor({
           style={{ top: composer.top, left: composer.left }}
           onMouseDown={(e) => e.stopPropagation()}
         >
-          <button
-            className="comment-popover-close"
-            onClick={() => setComposer(null)}
-            aria-label="Cancel"
-          >
-            ✕
-          </button>
+          <div className="cp-head">
+            <span className="cp-title">Comments</span>
+            <button className="cp-close-btn" onClick={() => setComposer(null)}>
+              Close
+            </button>
+          </div>
           {composer.quote && <div className="cp-quote">“{composer.quote}”</div>}
-          <textarea
-            className="cp-reply-input"
-            autoFocus
-            rows={3}
-            value={composer.text}
-            placeholder="Add a comment…"
-            onChange={(e) => setComposer((c) => (c ? { ...c, text: e.target.value } : c))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                submitComment()
-              }
-              if (e.key === 'Escape') setComposer(null)
-            }}
-          />
-          <button className="cp-reply-btn" disabled={!composer.text.trim()} onClick={submitComment}>
-            Comment
-          </button>
+          <div className="cp-footer">
+            <textarea
+              className="cp-footer-input"
+              autoFocus
+              rows={1}
+              value={composer.text}
+              placeholder="Type a message"
+              onChange={(e) => setComposer((c) => (c ? { ...c, text: e.target.value } : c))}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submitComment()
+                }
+                if (e.key === 'Escape') setComposer(null)
+              }}
+            />
+            <button className="cp-send-btn" disabled={!composer.text.trim()} onClick={submitComment}>
+              Send
+            </button>
+          </div>
         </div>
       )}
       {editable && <Toolbar editor={editor} />}
