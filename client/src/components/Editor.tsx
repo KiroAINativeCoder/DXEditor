@@ -441,10 +441,13 @@ function CollabEditor({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="cp-head">
+            <div className="cp-head-left" />
             <span className="cp-title">Comments</span>
-            <button className="cp-close-btn" onClick={() => setComposer(null)}>
-              Close
-            </button>
+            <div className="cp-head-right">
+              <button className="cp-close-btn" onClick={() => setComposer(null)}>
+                Close
+              </button>
+            </div>
           </div>
           {composer.quote && <div className="cp-quote">“{composer.quote}”</div>}
           <div className="cp-footer">
@@ -479,14 +482,16 @@ function CollabEditor({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <div className="cp-head">
-            <span className="cp-title">Comments</span>
-            <div className="cp-head-actions">
+            <div className="cp-head-left">
               {editable && popover.thread && !popover.thread.resolved && (
                 <button className="cp-archive-btn" onClick={archiveThread}>
                   Archive
                 </button>
               )}
               {popover.thread?.resolved && <span className="cp-archived">Archived</span>}
+            </div>
+            <span className="cp-title">Comments</span>
+            <div className="cp-head-right">
               <button className="cp-close-btn" onClick={() => setPopover(null)}>
                 Close
               </button>

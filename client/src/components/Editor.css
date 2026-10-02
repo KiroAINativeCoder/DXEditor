@@ -151,17 +151,22 @@
 }
 .comment-popover-empty { color: #8a8f96; font-size: 13px; padding: 16px; }
 
-/* Header: title left, actions (Archive / Close) right */
+/* Header: Archive (left) · Comments (center) · Close (right) */
 .cp-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: relative;
   padding: 10px 12px;
   border-bottom: 1px solid #ececea;
 }
 .cp-title { font-size: 15px; font-weight: 600; color: #1f2328; }
-.cp-head-actions { display: flex; align-items: center; gap: 8px; }
+.cp-head-left,
+.cp-head-right {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+}
+.cp-head-right { justify-content: flex-end; }
 .cp-close-btn {
   border: 1px solid #dcdbd7;
   background: #fff;
