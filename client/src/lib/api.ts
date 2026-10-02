@@ -242,13 +242,14 @@ export const shares = {
 // --------------------------------------------------------------- comments
 export const comments = {
   list: async (docId: string): Promise<Thread[]> => {
-    const { data, error } = await supabase
-      .from('comment')
-      .select('*, author:app_user(id,email,name)')
-      .eq('document_id', docId)
-      .order('created_at', { ascending: true })
-    if (error) throw new ApiError(403, error.message)
-    const rows = (data ?? []) as unknown as Comment[]
+    // Fetch via the server (service role) so author details resolve even for
+    // commenters whose app_user row RLS hides from this reader.
+    const token = await accessToken()
+    const res = await fetch(`${BASE}/api/docs/${docId}/comments`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new ApiError(res.status, `Could not load comments (${res.status})`)
+    const rows = (await res.json()) as Comment[]
     const roots = rows.filter((c) => !c.parent_id).map((r) => ({ ...r, replies: [] as Comment[] }))
     const byId = new Map(roots.map((r) => [r.id, r]))
     for (const c of rows) if (c.parent_id && byId.has(c.parent_id)) byId.get(c.parent_id)!.replies.push(c)

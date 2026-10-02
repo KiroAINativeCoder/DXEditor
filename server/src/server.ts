@@ -19,9 +19,30 @@ import { requireAuth } from './auth.js'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4000)
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
+// Allow the dev client regardless of which loopback spelling the browser uses.
+// Vite listens on [::1]:5173 but can be reached as localhost / 127.0.0.1 / [::1],
+// and each spelling is a DISTINCT Origin for CORS. Pinning a single string meant
+// a session opened on http://127.0.0.1:5173 had its credentialed fetches
+// (lookup + share) blocked, surfacing as a generic "Failed to share" in the UI.
+// Loopback is ALWAYS allowed (dev); a non-loopback CLIENT_ORIGIN (prod) is
+// allowed in addition to it.
+const EXPLICIT_ORIGIN = process.env.CLIENT_ORIGIN
+const LOOPBACK_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/
 
-app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }))
+app.use(
+  cors({
+    credentials: true,
+    origin: (origin, cb) => {
+      // Non-browser clients (curl, same-origin, server-to-server) send no Origin.
+      if (!origin) return cb(null, true)
+      // With credentials:true the allowed origin must be reflected back as the
+      // exact string — returning boolean true makes cors emit "*", which the
+      // browser rejects for credentialed requests. So echo `origin` when allowed.
+      const ok = LOOPBACK_RE.test(origin) || (!!EXPLICIT_ORIGIN && origin === EXPLICIT_ORIGIN)
+      return cb(null, ok ? origin : false)
+    },
+  }),
+)
 app.use(express.json({ limit: '1mb' }))
 
 const admin = createClient(
@@ -105,6 +126,39 @@ app.post('/api/docs/:id/shares', requireAuth, async (req, res) => {
     .upsert({ document_id: docId, user_id: targetUserId, role }, { onConflict: 'document_id,user_id' })
   if (error) return res.status(500).json({ error: error.message })
   res.json({ ok: true })
+})
+
+// List a document's comments with author details resolved via the service
+// role. Reading comments through supabase-js directly leaves the author join
+// null for any commenter whose app_user row RLS hides from the reader (e.g. a
+// collaborator added by someone else) — which both looks wrong and crashed the
+// client. We verify the caller can access the doc, then return resolved rows.
+app.get('/api/docs/:id/comments', requireAuth, async (req, res) => {
+  const callerId = req.user!.id
+  const docId = req.params.id
+
+  // Authorize: owner or any membership on the doc.
+  const { data: doc } = await admin.from('document').select('owner_id').eq('id', docId).maybeSingle()
+  if (!doc) return res.status(404).json({ error: 'Document not found' })
+  let allowed = doc.owner_id === callerId
+  if (!allowed) {
+    const { data: mem } = await admin
+      .from('membership')
+      .select('user_id')
+      .eq('document_id', docId)
+      .eq('user_id', callerId)
+      .maybeSingle()
+    allowed = !!mem
+  }
+  if (!allowed) return res.status(403).json({ error: 'No access to this document' })
+
+  const { data, error } = await admin
+    .from('comment')
+    .select('*, author:app_user(id,email,name)')
+    .eq('document_id', docId)
+    .order('created_at', { ascending: true })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data ?? [])
 })
 
 // The collab relay is a raw WebSocket and reads its token from the query

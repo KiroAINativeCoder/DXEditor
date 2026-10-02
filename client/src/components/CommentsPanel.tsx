@@ -98,14 +98,14 @@ export default function CommentsPanel({
               {t.quote ? `“${t.quote}”` : 'Comment'}
             </button>
 
-            <Entry name={t.author.name || t.author.email} when={when(t.created_at)} body={t.body}
-              canDelete={canEdit && (t.author.id === currentUserId)}
+            <Entry name={t.author?.name || t.author?.email || 'Unknown user'} when={when(t.created_at)} body={t.body}
+              canDelete={canEdit && (t.author?.id === currentUserId)}
               onDelete={() => remove(t.id)} />
 
             {t.replies.map((r) => (
-              <Entry key={r.id} reply name={r.author.name || r.author.email} when={when(r.created_at)}
+              <Entry key={r.id} reply name={r.author?.name || r.author?.email || 'Unknown user'} when={when(r.created_at)}
                 body={r.body}
-                canDelete={canEdit && (r.author.id === currentUserId)}
+                canDelete={canEdit && (r.author?.id === currentUserId)}
                 onDelete={() => remove(r.id)} />
             ))}
 

@@ -486,14 +486,14 @@ function CollabEditor({
             <>
               <div className="cp-entries">
                 <CommentEntry
-                  name={popover.thread.author.name || popover.thread.author.email}
+                  name={authorLabel(popover.thread.author)}
                   when={popover.thread.created_at}
                   body={popover.thread.body}
                 />
                 {popover.thread.replies.map((r) => (
                   <CommentEntry
                     key={r.id}
-                    name={r.author.name || r.author.email}
+                    name={authorLabel(r.author)}
                     when={r.created_at}
                     body={r.body}
                   />
@@ -529,6 +529,12 @@ function CollabEditor({
       )}
     </div>
   )
+}
+
+// Null-safe author display: the app_user join can be null when RLS hides the
+// author's row from the current reader. Never let that crash the render.
+function authorLabel(author: { name?: string | null; email?: string | null } | null | undefined) {
+  return author?.name || author?.email || 'Unknown user'
 }
 
 // Relative time like "7m", "2h", "3d" (falls back to a date for older items).
