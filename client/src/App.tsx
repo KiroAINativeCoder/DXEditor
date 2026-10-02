@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Editor from './components/Editor'
-import Home from './components/Home'
 import Auth from './components/Auth'
 import ShareDialog from './components/ShareDialog'
-import { auth, docs, folders, type User, type DocDetail } from './lib/api'
+import { auth, docs, type User, type DocDetail } from './lib/api'
 import './App.css'
 
 export default function App() {
@@ -48,18 +47,6 @@ export default function App() {
     setDetail(null)
   }
 
-  async function newDocument() {
-    const doc = await docs.create('Untitled document')
-    setRefreshKey((k) => k + 1)
-    setSelectedId(doc.id)
-  }
-  async function newFolder() {
-    const name = window.prompt('Folder name:')
-    if (name === null) return
-    await folders.create(name || 'New folder')
-    setRefreshKey((k) => k + 1)
-  }
-
   const canShare = detail && (detail.role === 'OWNER' || detail.role === 'MANAGER')
   const roleLabel =
     detail?.role === 'MANAGER'
@@ -74,7 +61,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div className="brand" onClick={() => setSelectedId(null)} style={{ cursor: 'pointer' }} title="Home">
+        <div className="brand">
           <span className="brand-mark">DX</span>
           <span className="brand-name">DXEditor</span>
         </div>
@@ -108,13 +95,7 @@ export default function App() {
               onTitleSaved={() => setRefreshKey((k) => k + 1)}
             />
           ) : (
-            <Home
-              userName={user.name || user.email}
-              refreshKey={refreshKey}
-              onOpen={(id) => setSelectedId(id)}
-              onNewDoc={newDocument}
-              onNewFolder={newFolder}
-            />
+            <div className="app-placeholder">Select a document, or create one from the sidebar.</div>
           )}
         </main>
       </div>
