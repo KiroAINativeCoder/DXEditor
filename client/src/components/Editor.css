@@ -10,6 +10,10 @@
   align-items: center;
   gap: 10px;
   padding-right: 16px;
+  background: #f7f7f5;
+  border-bottom: 1px solid #ececea;
+  flex-shrink: 0;
+  z-index: 11;
 }
 
 .doc-title-input {
@@ -49,7 +53,12 @@
   flex: 1;
   position: relative; /* anchor for the floating comment bubble */
   overflow-y: auto;
-  padding: 40px 16px 120px;
+  padding: 0 16px 120px; /* no top padding: the sticky toolbar sits at the top */
+}
+
+/* Top spacing for the page content lives below the sticky toolbar. */
+.editor-scroll .editor-content {
+  margin-top: 40px;
 }
 
 /* Floating "Comment" button over a text selection */
