@@ -297,3 +297,56 @@ export const comments = {
     if (error) throw new ApiError(403, error.message)
   },
 }
+
+// -------------------------------------------------------------- versions
+export type DocVersion = {
+  id: string
+  label: string | null
+  created_at: string
+  author?: User | null
+}
+
+async function authHeaders(json = false): Promise<Record<string, string>> {
+  const token = await accessToken()
+  const h: Record<string, string> = {}
+  if (token) h.Authorization = `Bearer ${token}`
+  if (json) h['Content-Type'] = 'application/json'
+  return h
+}
+
+export const versions = {
+  list: async (docId: string): Promise<DocVersion[]> => {
+    const res = await fetch(`${BASE}/api/docs/${docId}/versions`, { headers: await authHeaders() })
+    if (!res.ok) throw new ApiError(res.status, `Could not load versions (${res.status})`)
+    return (await res.json()) as DocVersion[]
+  },
+
+  // `update` is a base64-encoded Y.encodeStateAsUpdate(ydoc).
+  create: async (docId: string, update: string, label?: string): Promise<DocVersion> => {
+    const res = await fetch(`${BASE}/api/docs/${docId}/versions`, {
+      method: 'POST',
+      headers: await authHeaders(true),
+      body: JSON.stringify({ update, label }),
+    })
+    if (!res.ok) {
+      const msg = await res.json().then((b) => b.error).catch(() => null)
+      throw new ApiError(res.status, msg || `Could not save version (${res.status})`)
+    }
+    return (await res.json()) as DocVersion
+  },
+
+  // Returns the base64 Yjs update for preview/restore.
+  get: async (docId: string, versionId: string): Promise<{ id: string; label: string | null; created_at: string; update: string }> => {
+    const res = await fetch(`${BASE}/api/docs/${docId}/versions/${versionId}`, { headers: await authHeaders() })
+    if (!res.ok) throw new ApiError(res.status, `Could not load version (${res.status})`)
+    return res.json()
+  },
+
+  remove: async (docId: string, versionId: string): Promise<void> => {
+    const res = await fetch(`${BASE}/api/docs/${docId}/versions/${versionId}`, {
+      method: 'DELETE',
+      headers: await authHeaders(),
+    })
+    if (!res.ok) throw new ApiError(res.status, `Could not delete version (${res.status})`)
+  },
+}

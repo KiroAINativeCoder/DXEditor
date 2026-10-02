@@ -43,7 +43,7 @@ app.use(
     },
   }),
 )
-app.use(express.json({ limit: '1mb' }))
+app.use(express.json({ limit: '8mb' }))
 
 const admin = createClient(
   process.env.SUPABASE_URL ?? '',
@@ -159,6 +159,97 @@ app.get('/api/docs/:id/comments', requireAuth, async (req, res) => {
     .order('created_at', { ascending: true })
   if (error) return res.status(500).json({ error: error.message })
   res.json(data ?? [])
+})
+
+// ------------------------------------------------------------- versioning
+// Content lives in Yjs; a "version" is a full Y.encodeStateAsUpdate(ydoc)
+// captured by the (already-synced) browser client and stored as base64 here.
+// Restore is done client-side by applying the stored update onto the live doc.
+
+/** Resolve the caller's capability on a doc: 'owner' | 'editor' | 'viewer' | null. */
+async function docCapability(callerId: string, docId: string) {
+  const { data: doc } = await admin.from('document').select('owner_id').eq('id', docId).maybeSingle()
+  if (!doc) return { exists: false as const }
+  if (doc.owner_id === callerId) return { exists: true as const, cap: 'owner' as const }
+  const { data: mem } = await admin
+    .from('membership')
+    .select('role')
+    .eq('document_id', docId)
+    .eq('user_id', callerId)
+    .maybeSingle()
+  if (!mem) return { exists: true as const, cap: null }
+  const cap = mem.role === 'VIEWER' ? ('viewer' as const) : ('editor' as const)
+  return { exists: true as const, cap }
+}
+
+// List versions (metadata only — no blobs).
+app.get('/api/docs/:id/versions', requireAuth, async (req, res) => {
+  const r = await docCapability(req.user!.id, String(req.params.id))
+  if (!r.exists) return res.status(404).json({ error: 'Document not found' })
+  if (!r.cap) return res.status(403).json({ error: 'No access to this document' })
+  const { data, error } = await admin
+    .from('document_version')
+    .select('id,label,created_at,author:app_user(id,email,name)')
+    .eq('document_id', req.params.id)
+    .order('created_at', { ascending: false })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data ?? [])
+})
+
+// Create a version from a base64-encoded Yjs state update.
+app.post('/api/docs/:id/versions', requireAuth, async (req, res) => {
+  const r = await docCapability(req.user!.id, String(req.params.id))
+  if (!r.exists) return res.status(404).json({ error: 'Document not found' })
+  if (r.cap !== 'owner' && r.cap !== 'editor') {
+    return res.status(403).json({ error: 'Only editors can save a version' })
+  }
+  const b64 = typeof req.body?.update === 'string' ? req.body.update : ''
+  const label = typeof req.body?.label === 'string' && req.body.label.trim() ? req.body.label.trim() : null
+  if (!b64) return res.status(400).json({ error: 'update (base64) is required' })
+  // Postgres bytea over PostgREST accepts a hex string prefixed with \x.
+  const hex = '\\x' + Buffer.from(b64, 'base64').toString('hex')
+  const { data, error } = await admin
+    .from('document_version')
+    .insert({ document_id: req.params.id, update_blob: hex, label, created_by: req.user!.id })
+    .select('id,label,created_at')
+    .single()
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
+
+// Fetch one version's bytes (base64) for preview/restore.
+app.get('/api/docs/:id/versions/:vid', requireAuth, async (req, res) => {
+  const r = await docCapability(req.user!.id, String(req.params.id))
+  if (!r.exists) return res.status(404).json({ error: 'Document not found' })
+  if (!r.cap) return res.status(403).json({ error: 'No access to this document' })
+  const { data, error } = await admin
+    .from('document_version')
+    .select('id,label,created_at,update_blob')
+    .eq('id', req.params.vid)
+    .eq('document_id', req.params.id)
+    .maybeSingle()
+  if (error) return res.status(500).json({ error: error.message })
+  if (!data) return res.status(404).json({ error: 'Version not found' })
+  // update_blob comes back as a \x-prefixed hex string; convert to base64.
+  const hex = String(data.update_blob).replace(/^\\x/, '')
+  const update = Buffer.from(hex, 'hex').toString('base64')
+  res.json({ id: data.id, label: data.label, created_at: data.created_at, update })
+})
+
+// Delete a version (editors only).
+app.delete('/api/docs/:id/versions/:vid', requireAuth, async (req, res) => {
+  const r = await docCapability(req.user!.id, String(req.params.id))
+  if (!r.exists) return res.status(404).json({ error: 'Document not found' })
+  if (r.cap !== 'owner' && r.cap !== 'editor') {
+    return res.status(403).json({ error: 'Only editors can delete a version' })
+  }
+  const { error } = await admin
+    .from('document_version')
+    .delete()
+    .eq('id', req.params.vid)
+    .eq('document_id', req.params.id)
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ ok: true })
 })
 
 // The collab relay is a raw WebSocket and reads its token from the query

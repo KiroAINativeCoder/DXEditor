@@ -15,6 +15,7 @@ import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import Toolbar from './Toolbar'
 import CommentsPanel from './CommentsPanel'
+import VersionPanel from './VersionPanel'
 import Menu from './Menu'
 import { CommentMark } from './CommentMark'
 import { docs, comments, type Role, type Thread as ThreadT } from '../lib/api'
@@ -47,7 +48,26 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canEdit = role === 'OWNER' || role === 'EDITOR'
 
+  // --- Versioning: capture/apply the live Yjs state as a base64 update. ---
+  function snapshotUpdate(): string | null {
+    if (!conn) return null
+    const bytes = Y.encodeStateAsUpdate(conn.ydoc)
+    let bin = ''
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i])
+    return btoa(bin)
+  }
+  function applyUpdate(base64: string) {
+    if (!conn) return
+    const bin = atob(base64)
+    const bytes = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+    // Applying a full prior-state update merges it into the CRDT, which brings
+    // the shared doc to include that version's content for all clients.
+    Y.applyUpdate(conn.ydoc, bytes)
+  }
+
   const [showComments, setShowComments] = useState(false)
+  const [showVersions, setShowVersions] = useState(false)
   const [commentRefresh, setCommentRefresh] = useState(0)
   // Document font family (Quip-style). Persisted per-doc in localStorage; the
   // choice is view-local (not synced to collaborators) for this first version.
@@ -153,6 +173,7 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
               label="View"
               items={[
                 { label: 'Comments', checked: showComments, onClick: () => setShowComments((v) => !v) },
+                { label: 'Version history', checked: showVersions, onClick: () => setShowVersions((v) => !v) },
               ]}
             />
             <Menu
@@ -229,6 +250,16 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
               if (resolved) ed?.chain().unsetComment(commentId).run()
             }}
             onClose={() => setShowComments(false)}
+          />
+        )}
+
+        {showVersions && (
+          <VersionPanel
+            docId={docId}
+            canEdit={canEdit}
+            snapshot={snapshotUpdate}
+            applyUpdate={applyUpdate}
+            onClose={() => setShowVersions(false)}
           />
         )}
       </div>
