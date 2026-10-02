@@ -37,16 +37,23 @@ export class ApiError extends Error {
 
 // ------------------------------------------------------------------- auth
 export const auth = {
+  // Returns needsConfirmation=true when Supabase created the user but issued no
+  // session (email confirmation is on). The name is stashed locally so we can
+  // sync the app_user row on the first confirmed sign-in.
   signUp: async (email: string, password: string, name?: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw new ApiError(400, error.message)
-    await sync(name)
-    return data.user
+    if (name) localStorage.setItem('dx_pending_name', name)
+    const needsConfirmation = !data.session
+    if (!needsConfirmation) await sync(name)
+    return { user: data.user, needsConfirmation }
   },
   signIn: async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw new ApiError(401, error.message)
-    await sync()
+    const pendingName = localStorage.getItem('dx_pending_name') ?? undefined
+    await sync(pendingName)
+    localStorage.removeItem('dx_pending_name')
     return data.user
   },
   signOut: () => supabase.auth.signOut(),
