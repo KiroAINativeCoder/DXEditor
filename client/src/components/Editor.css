@@ -341,6 +341,19 @@
 
 .editor-content .ProseMirror > * + * { margin-top: 0.3em; }
 
+/* Kill the browser's default block margins so the gap is controlled ONLY by
+   the rule above (otherwise each <p>'s default top+bottom 1em margin stacks). */
+.editor-content .ProseMirror p,
+.editor-content .ProseMirror h1,
+.editor-content .ProseMirror h2,
+.editor-content .ProseMirror h3,
+.editor-content .ProseMirror ul,
+.editor-content .ProseMirror ol,
+.editor-content .ProseMirror blockquote,
+.editor-content .ProseMirror pre {
+  margin: 0;
+}
+
 .editor-content img {
   max-width: 100%;
   height: auto;
