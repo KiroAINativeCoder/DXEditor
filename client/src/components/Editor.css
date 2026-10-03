@@ -336,10 +336,22 @@
   min-height: 480px;
   color: #1f2328;
   font-size: 16px;
-  line-height: 1.55;
+  line-height: 1.4;
 }
 
-.editor-content .ProseMirror > * + * { margin-top: 0.5em; }
+.editor-content .ProseMirror > * + * { margin-top: 0.3em; }
+
+.editor-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 0.5em 0;
+}
+.editor-content img.ProseMirror-selectednode {
+  outline: 2px solid #2567f4;
+  outline-offset: 2px;
+}
 
 .editor-content h1 { font-size: 2em; font-weight: 700; line-height: 1.25; }
 .editor-content h2 { font-size: 1.5em; font-weight: 700; line-height: 1.3; }

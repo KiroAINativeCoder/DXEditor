@@ -9,6 +9,7 @@ import { Table } from '@tiptap/extension-table'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableCell } from '@tiptap/extension-table-cell'
+import Image from '@tiptap/extension-image'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
 import * as Y from 'yjs'
@@ -18,7 +19,7 @@ import CommentsPanel from './CommentsPanel'
 import VersionPanel from './VersionPanel'
 import Menu from './Menu'
 import { CommentMark } from './CommentMark'
-import { docs, comments, type Role, type Thread as ThreadT } from '../lib/api'
+import { docs, comments, images, type Role, type Thread as ThreadT } from '../lib/api'
 import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import './Editor.css'
@@ -99,6 +100,17 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
   // The live Tiptap editor instance, lifted from CollabEditor so the menu bar
   // (Edit/Insert/Format) can drive it.
   const [ed, setEd] = useState<TiptapEditor | null>(null)
+  // Hidden file input for the Insert → Image menu action.
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+  async function insertImageFromPicker(file: File) {
+    if (!ed) return
+    try {
+      const url = await images.upload(docId, file)
+      ed.chain().focus().setImage({ src: url }).run()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Image upload failed')
+    }
+  }
 
   useEffect(() => {
     let provider: WebsocketProvider | null = null
@@ -198,6 +210,17 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
 
   return (
     <div className="editor-shell">
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) void insertImageFromPicker(f)
+          e.target.value = '' // allow re-selecting the same file
+        }}
+      />
       <div className="editor-topbar">
         <div className="title-block">
           <input
@@ -238,6 +261,7 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
                 { label: 'Numbered list', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleOrderedList().run() },
                 { label: 'Code block', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleCodeBlock().run() },
                 { label: 'Divider', disabled: !canEdit, onClick: () => ed?.chain().focus().setHorizontalRule().run() },
+                { label: 'Image…', disabled: !canEdit, onClick: () => imageInputRef.current?.click() },
               ]}
             />
             <Menu
@@ -379,6 +403,7 @@ function CollabEditor({
       TableHeader,
       TableCell,
       CommentMark,
+      Image.configure({ inline: false, allowBase64: false }),
       Collaboration.configure({ document: ydoc }),
       CollaborationCaret.configure({
         provider,
@@ -396,7 +421,48 @@ function CollabEditor({
       const end = editor.view.coordsAtPos(to)
       setBubble({ top: start.top - 42, left: (start.left + end.left) / 2 })
     },
+    editorProps: {
+      // Paste an image (e.g. a screenshot) → upload to storage, insert the URL.
+      handlePaste(_view, event) {
+        if (!editable) return false
+        const files = Array.from(event.clipboardData?.files ?? []).filter((f) =>
+          f.type.startsWith('image/'),
+        )
+        if (files.length === 0) return false
+        event.preventDefault()
+        files.forEach((file) => void uploadAndInsert(file))
+        return true
+      },
+      // Drag-and-drop image files anywhere in the editor.
+      handleDrop(_view, event) {
+        if (!editable) return false
+        const files = Array.from((event as DragEvent).dataTransfer?.files ?? []).filter((f) =>
+          f.type.startsWith('image/'),
+        )
+        if (files.length === 0) return false
+        event.preventDefault()
+        files.forEach((file) => void uploadAndInsert(file))
+        return true
+      },
+    },
   })
+
+  // Upload an image file to storage, then insert it at the current selection.
+  const uploadAndInsert = useCallback(
+    async (file: File) => {
+      if (!editor) return
+      try {
+        const url = await images.upload(docId, file)
+        editor.chain().focus().setImage({ src: url }).run()
+      } catch (e) {
+        // Surface failures without crashing the editor.
+        // eslint-disable-next-line no-console
+        console.error('Image upload failed', e)
+        window.alert(e instanceof Error ? e.message : 'Image upload failed')
+      }
+    },
+    [editor, docId],
+  )
 
   // Report the editor instance up to the parent so the menu bar can drive it.
   useEffect(() => {

@@ -350,3 +350,22 @@ export const versions = {
     if (!res.ok) throw new ApiError(res.status, `Could not delete version (${res.status})`)
   },
 }
+
+// ---------------------------------------------------------------- images
+export const images = {
+  // Upload an image file to Supabase Storage and return its public URL. The
+  // doc only ever stores the URL (not the bytes), keeping the Yjs CRDT small.
+  upload: async (docId: string, file: File): Promise<string> => {
+    if (!file.type.startsWith('image/')) throw new ApiError(400, 'Not an image file')
+    if (file.size > 10 * 1024 * 1024) throw new ApiError(400, 'Image too large (max 10 MB)')
+    const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const path = `${docId}/${crypto.randomUUID()}.${ext}`
+    const { error } = await supabase.storage.from('doc-images').upload(path, file, {
+      cacheControl: '31536000',
+      upsert: false,
+      contentType: file.type,
+    })
+    if (error) throw new ApiError(400, `Upload failed: ${error.message}`)
+    return supabase.storage.from('doc-images').getPublicUrl(path).data.publicUrl
+  },
+}
