@@ -347,11 +347,46 @@
   border-radius: 8px;
   display: block;
   margin: 0.5em 0;
+  cursor: zoom-in;
 }
 .editor-content img.ProseMirror-selectednode {
   outline: 2px solid #2567f4;
   outline-offset: 2px;
 }
+
+/* Image lightbox */
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: 40px;
+}
+.img-lightbox-img {
+  max-width: 94vw;
+  max-height: 92vh;
+  border-radius: 8px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+.img-lightbox-close {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+.img-lightbox-close:hover { background: rgba(255, 255, 255, 0.28); }
 
 .editor-content h1 { font-size: 2em; font-weight: 700; line-height: 1.25; }
 .editor-content h2 { font-size: 1.5em; font-weight: 700; line-height: 1.3; }

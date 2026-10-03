@@ -470,6 +470,28 @@ function CollabEditor({
     return () => onEditorReady?.(null)
   }, [editor, onEditorReady])
 
+  // Lightbox: clicking an image in the editor opens an expanded overlay.
+  const [lightbox, setLightbox] = useState<string | null>(null)
+  useEffect(() => {
+    const scroll = document.querySelector('.editor-scroll')
+    if (!scroll) return
+    const onClick = (e: Event) => {
+      const t = e.target as HTMLElement
+      if (t.tagName === 'IMG' && t.closest('.editor-content')) {
+        const src = (t as HTMLImageElement).src
+        if (src) setLightbox(src)
+      }
+    }
+    scroll.addEventListener('click', onClick)
+    return () => scroll.removeEventListener('click', onClick)
+  }, [])
+  useEffect(() => {
+    if (!lightbox) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setLightbox(null)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [lightbox])
+
   // Scroll to + briefly flash the anchored span when a thread is clicked.
   useEffect(() => {
     if (!focusAnchor) return
@@ -631,6 +653,15 @@ function CollabEditor({
       )}
       {editable && <Toolbar editor={editor} />}
       <EditorContent editor={editor} className={`editor-content font-${font}`} />
+
+      {lightbox && (
+        <div className="img-lightbox" onClick={() => setLightbox(null)}>
+          <button className="img-lightbox-close" onClick={() => setLightbox(null)} aria-label="Close">
+            ✕
+          </button>
+          <img src={lightbox} alt="" className="img-lightbox-img" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
 
       {popover && (
         <div
