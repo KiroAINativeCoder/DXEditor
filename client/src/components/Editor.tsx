@@ -504,20 +504,21 @@ function CollabEditor({
     return () => onEditorReady?.(null)
   }, [editor, onEditorReady])
 
-  // Lightbox: clicking an image in the editor opens an expanded overlay.
+  // Lightbox: double-clicking an image expands it (single click selects the
+  // node via ProseMirror's default behavior).
   const [lightbox, setLightbox] = useState<string | null>(null)
   useEffect(() => {
     const scroll = document.querySelector('.editor-scroll')
     if (!scroll) return
-    const onClick = (e: Event) => {
+    const onDblClick = (e: Event) => {
       const t = e.target as HTMLElement
       if (t.tagName === 'IMG' && t.closest('.editor-content')) {
         const src = (t as HTMLImageElement).src
         if (src) setLightbox(src)
       }
     }
-    scroll.addEventListener('click', onClick)
-    return () => scroll.removeEventListener('click', onClick)
+    scroll.addEventListener('dblclick', onDblClick)
+    return () => scroll.removeEventListener('dblclick', onDblClick)
   }, [])
   useEffect(() => {
     if (!lightbox) return
