@@ -78,7 +78,12 @@ function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
           ) : (
             <div className="mermaid-svg" dangerouslySetInnerHTML={{ __html: svg }} />
           )}
-          {canEdit && <button className="mermaid-edit-btn" onClick={() => setEditing(true)}>Edit</button>}
+          {canEdit && (
+            <>
+              <span className="mermaid-drag" data-drag-handle title="Drag to move" contentEditable={false}>⠿</span>
+              <button className="mermaid-edit-btn" onClick={() => setEditing(true)}>Edit</button>
+            </>
+          )}
         </div>
       )}
     </NodeViewWrapper>

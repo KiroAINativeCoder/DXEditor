@@ -70,3 +70,21 @@
 }
 .mermaid-preview:hover .mermaid-edit-btn { opacity: 1; }
 .mermaid-edit-btn:hover { background: #ecebe8; }
+
+.mermaid-drag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #f0efec;
+  color: #8a8f96;
+  font-size: 14px;
+  line-height: 1;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.12s;
+  user-select: none;
+}
+.mermaid-preview:hover .mermaid-drag { opacity: 1; }
+.mermaid-drag:active { cursor: grabbing; }
