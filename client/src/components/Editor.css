@@ -7,23 +7,56 @@
 
 .editor-topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  padding-right: 16px;
+  padding: 10px 16px 8px 24px;
+  background: #fff;
+  border-bottom: 1px solid #ececea;
+  flex-shrink: 0;
+  z-index: 11;
+}
+
+.title-block {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .doc-title-input {
-  flex: 1;
   border: none;
   outline: none;
   background: transparent;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   color: #1f2328;
-  padding: 16px 24px 8px;
+  padding: 0;
+  width: 100%;
   box-sizing: border-box;
+  line-height: 1.3;
 }
 .doc-title-input::placeholder { color: #c2c6cc; }
+
+/* Static Quip-style menu row under the title. */
+.doc-menu-row {
+  display: flex;
+  gap: 16px;
+  margin-top: 3px;
+}
+.doc-menu-item {
+  font-size: 13px;
+  color: #6b7177;
+  cursor: default;
+  user-select: none;
+}
+.doc-menu-item.is-active { color: #1f2328; font-weight: 600; }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 
 .comments-btn {
   border: 1px solid #e6e6e3;
@@ -49,8 +82,36 @@
   flex: 1;
   position: relative; /* anchor for the floating comment bubble */
   overflow-y: auto;
-  padding: 40px 16px 120px;
+  padding: 0 0 120px; /* full-width so the sticky toolbar spans edge-to-edge; content centers itself */
 }
+
+/* Top spacing for the page content lives below the sticky toolbar. */
+.editor-scroll .editor-content {
+  margin-top: 40px;
+}
+
+/* Document font options (Quip-style). Applied to the editor content. */
+.editor-content.font-sans .ProseMirror {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+.editor-content.font-serif .ProseMirror {
+  font-family: Georgia, Cambria, 'Times New Roman', serif;
+}
+.editor-content.font-mono .ProseMirror {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.font-picker {
+  border: 1px solid #e6e6e3;
+  background: #fff;
+  border-radius: 7px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3a3f45;
+  cursor: pointer;
+}
+.font-picker:hover { background: #f0efec; }
 
 /* Floating "Comment" button over a text selection */
 .comment-bubble {
@@ -74,6 +135,139 @@
   background: #ffd874 !important;
   transition: background 0.3s;
 }
+
+/* Popover shown when clicking commented text */
+.comment-popover {
+  position: absolute;
+  z-index: 30;
+  width: 330px;
+  max-width: 90vw;
+  background: #fff;
+  border: 1px solid #e6e6e3;
+  border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.18);
+  padding: 0;
+  overflow: hidden;
+}
+.comment-popover-empty { color: #8a8f96; font-size: 13px; padding: 16px; }
+
+/* Header: Archive (left) · Comments (center) · Close (right) */
+.cp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #ececea;
+}
+.cp-title { font-size: 15px; font-weight: 600; color: #1f2328; }
+.cp-head-left,
+.cp-head-right {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+}
+.cp-head-right { justify-content: flex-end; }
+.cp-close-btn {
+  border: 1px solid #dcdbd7;
+  background: #fff;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #3a3f45;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.cp-close-btn:hover { background: #f4f3f1; }
+.cp-archive-btn {
+  border: 1px solid #dcdbd7;
+  background: #fff;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #3a3f45;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.cp-archive-btn:hover { background: #f4f3f1; }
+.cp-archived {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a8f96;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Scrollable thread body */
+.cp-entries {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+.cp-entry { display: flex; gap: 10px; margin-bottom: 14px; }
+.cp-entry:last-child { margin-bottom: 0; }
+.cp-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cp-entry-main { min-width: 0; }
+.cp-entry-head { display: flex; align-items: baseline; gap: 6px; }
+.cp-name { font-size: 14px; font-weight: 600; color: #1f2328; }
+.cp-when { font-size: 12px; color: #9aa0a6; }
+.cp-text {
+  font-size: 14px;
+  color: #3a3f45;
+  margin-top: 2px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Footer composer */
+.cp-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #ececea;
+}
+.cp-footer-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  padding: 6px 4px;
+  max-height: 90px;
+}
+.cp-footer-input:focus { outline: none; }
+.cp-send-btn {
+  flex: 0 0 auto;
+  background: #2567f4;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cp-send-btn:hover:not(:disabled) { background: #1a56da; }
+.cp-send-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* New-comment composer reuses the popover shell + header/footer styles */
+.cp-quote {
+  font-size: 12px;
+  color: #8a8f96;
+  font-style: italic;
+  margin: 12px 14px 0;
+}
+.comment-composer { padding: 0; }
 
 /* Collaboration status (bottom-right) */
 .collab-status {
@@ -142,10 +336,70 @@
   min-height: 480px;
   color: #1f2328;
   font-size: 16px;
-  line-height: 1.7;
+  line-height: 1.4;
 }
 
-.editor-content .ProseMirror > * + * { margin-top: 0.75em; }
+.editor-content .ProseMirror > * + * { margin-top: 0.3em; }
+
+/* Kill the browser's default block margins so the gap is controlled ONLY by
+   the rule above (otherwise each <p>'s default top+bottom 1em margin stacks). */
+.editor-content .ProseMirror p,
+.editor-content .ProseMirror h1,
+.editor-content .ProseMirror h2,
+.editor-content .ProseMirror h3,
+.editor-content .ProseMirror ul,
+.editor-content .ProseMirror ol,
+.editor-content .ProseMirror blockquote,
+.editor-content .ProseMirror pre {
+  margin: 0;
+}
+
+.editor-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  display: block;
+  margin: 0.5em 0;
+  cursor: pointer;
+}
+.editor-content img.ProseMirror-selectednode {
+  outline: 2px solid #2567f4;
+  outline-offset: 2px;
+}
+
+/* Image lightbox */
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: 40px;
+}
+.img-lightbox-img {
+  max-width: 94vw;
+  max-height: 92vh;
+  border-radius: 8px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+.img-lightbox-close {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+.img-lightbox-close:hover { background: rgba(255, 255, 255, 0.28); }
 
 .editor-content h1 { font-size: 2em; font-weight: 700; line-height: 1.25; }
 .editor-content h2 { font-size: 1.5em; font-weight: 700; line-height: 1.3; }
@@ -225,3 +479,14 @@
   position: absolute;
   pointer-events: none;
 }
+
+.mermaid-zoom-svg {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 94vw;
+  max-height: 92vh;
+  overflow: auto;
+  cursor: default;
+}
+.mermaid-zoom-svg svg { width: auto; height: auto; max-width: 100%; }

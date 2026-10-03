@@ -1,17 +1,33 @@
 import { useEffect, useState } from 'react'
-import { api, ApiError, type Share } from '../lib/api'
+import { shares as sharesApi, ApiError, type Share, type Role } from '../lib/api'
 import './ShareDialog.css'
 
-export default function ShareDialog({ docId, onClose }: { docId: string; onClose: () => void }) {
-  const [shares, setShares] = useState<Share[]>([])
+type ShareRole = 'VIEWER' | 'EDITOR' | 'MANAGER'
+
+const roleLabel: Record<ShareRole, string> = {
+  VIEWER: 'Can view',
+  EDITOR: 'Can edit',
+  MANAGER: 'Can manage',
+}
+
+export default function ShareDialog({
+  docId,
+  isOwner,
+  onClose,
+}: {
+  docId: string
+  isOwner: boolean
+  onClose: () => void
+}) {
+  const [list, setList] = useState<Share[]>([])
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'EDITOR' | 'VIEWER'>('EDITOR')
+  const [role, setRole] = useState<ShareRole>('EDITOR')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function load() {
     try {
-      setShares(await api.listShares(docId))
+      setList(await sharesApi.list(docId))
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Failed to load shares')
     }
@@ -26,7 +42,7 @@ export default function ShareDialog({ docId, onClose }: { docId: string; onClose
     setBusy(true)
     setError(null)
     try {
-      await api.addShare(docId, email, role)
+      await sharesApi.add(docId, email, role as Role)
       setEmail('')
       await load()
     } catch (err) {
@@ -37,7 +53,7 @@ export default function ShareDialog({ docId, onClose }: { docId: string; onClose
   }
 
   async function revoke(userId: string) {
-    await api.removeShare(docId, userId)
+    await sharesApi.remove(docId, userId)
     await load()
   }
 
@@ -57,9 +73,11 @@ export default function ShareDialog({ docId, onClose }: { docId: string; onClose
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <select value={role} onChange={(e) => setRole(e.target.value as 'EDITOR' | 'VIEWER')}>
+          <select value={role} onChange={(e) => setRole(e.target.value as ShareRole)}>
             <option value="EDITOR">Can edit</option>
             <option value="VIEWER">Can view</option>
+            {/* Only the owner may grant the manage (share) capability. */}
+            {isOwner && <option value="MANAGER">Can manage</option>}
           </select>
           <button type="submit" disabled={busy}>Share</button>
         </form>
@@ -67,14 +85,14 @@ export default function ShareDialog({ docId, onClose }: { docId: string; onClose
         {error && <div className="share-error">{error}</div>}
 
         <ul className="share-list">
-          {shares.length === 0 && <li className="share-empty">Not shared with anyone yet.</li>}
-          {shares.map((s) => (
+          {list.length === 0 && <li className="share-empty">Not shared with anyone yet.</li>}
+          {list.map((s) => (
             <li key={s.id} className="share-row">
               <span className="share-who">
                 {s.user.name || s.user.email}
                 <small>{s.user.email}</small>
               </span>
-              <span className="share-role">{s.role === 'EDITOR' ? 'Can edit' : 'Can view'}</span>
+              <span className="share-role">{roleLabel[s.role as ShareRole]}</span>
               <button className="share-revoke" onClick={() => revoke(s.user.id)}>Remove</button>
             </li>
           ))}

@@ -79,7 +79,14 @@
 .auth-submit:disabled { opacity: 0.6; cursor: default; }
 
 .auth-switch { font-size: 13px; color: #57606a; text-align: center; }
-.auth-switch button {
+
+.auth-note {
+  font-size: 14px;
+  color: #57606a;
+  line-height: 1.6;
+  text-align: center;
+  margin: 0 0 6px;
+}.auth-switch button {
   border: none;
   background: none;
   color: #1a52d6;

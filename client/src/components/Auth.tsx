@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, ApiError, type User } from '../lib/api'
+import { auth, ApiError, type User } from '../lib/api'
 import './Auth.css'
 
 export default function Auth({ onAuthed }: { onAuthed: (u: User) => void }) {
@@ -9,17 +9,27 @@ export default function Auth({ onAuthed }: { onAuthed: (u: User) => void }) {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [checkInbox, setCheckInbox] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError(null)
     try {
-      const user =
-        mode === 'login'
-          ? await api.login(email, password)
-          : await api.register(email, password, name || undefined)
-      onAuthed(user)
+      if (mode === 'login') {
+        await auth.signIn(email, password)
+        const user = await auth.current()
+        if (!user) throw new ApiError(401, 'Please confirm your email first, then log in.')
+        onAuthed({ ...user, name: user.name })
+      } else {
+        const { needsConfirmation } = await auth.signUp(email, password, name || undefined)
+        if (needsConfirmation) {
+          setCheckInbox(true) // confirmation email sent; user must click the link
+        } else {
+          const user = await auth.current()
+          if (user) onAuthed({ ...user, name: name || user.name })
+        }
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong')
     } finally {
@@ -27,12 +37,40 @@ export default function Auth({ onAuthed }: { onAuthed: (u: User) => void }) {
     }
   }
 
+  if (checkInbox) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <div className="auth-brand">
+            <span className="brand-mark">DD</span>
+            <span className="brand-name">DevDocs</span>
+          </div>
+          <h1 className="auth-title">Check your inbox</h1>
+          <p className="auth-note">
+            We sent a confirmation link to <strong>{email}</strong>. Click it to
+            activate your account, then come back and log in.
+          </p>
+          <button
+            className="auth-submit"
+            type="button"
+            onClick={() => {
+              setCheckInbox(false)
+              setMode('login')
+            }}
+          >
+            Back to log in
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="auth-screen">
       <form className="auth-card" onSubmit={submit}>
         <div className="auth-brand">
-          <span className="brand-mark">DX</span>
-          <span className="brand-name">DXEditor</span>
+          <span className="brand-mark">DD</span>
+          <span className="brand-name">DevDocs</span>
         </div>
         <h1 className="auth-title">{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type Thread } from '../lib/api'
+import { comments as commentsApi, type Thread } from '../lib/api'
 import './CommentsPanel.css'
 
 type Props = {
@@ -10,6 +10,9 @@ type Props = {
   refreshKey: number
   /** Focus the anchored text in the editor when a thread is clicked. */
   onFocusAnchor: (anchorId: string | null) => void
+  /** Called after a thread's resolved state changes, so the editor can
+   *  add/remove the corresponding highlight. */
+  onResolvedMark?: (commentId: string, resolved: boolean) => void
   onClose: () => void
 }
 
@@ -24,15 +27,21 @@ export default function CommentsPanel({
   currentUserId,
   refreshKey,
   onFocusAnchor,
+  onResolvedMark,
   onClose,
 }: Props) {
   const [threads, setThreads] = useState<Thread[]>([])
   const [replyFor, setReplyFor] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
-  const [showResolved, setShowResolved] = useState(false)
+  // Show resolved by default: resolving removes the document highlight but the
+  // thread must remain visible here.
+  const [showResolved, setShowResolved] = useState(true)
 
   async function load() {
-    setThreads(await api.listComments(docId))
+    const t = await commentsApi.list(docId)
+    setThreads(t)
+    // Clear any lingering highlight for threads that are already resolved.
+    for (const thread of t) if (thread.resolved) onResolvedMark?.(thread.id, true)
   }
   useEffect(() => {
     load()
@@ -41,19 +50,14 @@ export default function CommentsPanel({
 
   async function reply(threadId: string) {
     if (!replyText.trim()) return
-    await api.addComment(docId, replyText, { parentId: threadId })
+    await commentsApi.add(docId, replyText, { parentId: threadId })
     setReplyText('')
     setReplyFor(null)
     await load()
   }
 
-  async function toggleResolved(t: Thread) {
-    await api.setResolved(docId, t.id, !t.resolved)
-    await load()
-  }
-
   async function remove(commentId: string) {
-    await api.removeComment(docId, commentId)
+    await commentsApi.remove(docId, commentId)
     await load()
   }
 
@@ -83,18 +87,18 @@ export default function CommentsPanel({
       <ul className="thread-list">
         {visible.map((t) => (
           <li key={t.id} className={`thread${t.resolved ? ' is-resolved' : ''}`}>
-            <button className="thread-anchor" onClick={() => onFocusAnchor(t.anchorId)}>
+            <button className="thread-anchor" onClick={() => onFocusAnchor(t.anchor_id)}>
               {t.quote ? `“${t.quote}”` : 'Comment'}
             </button>
 
-            <Entry name={t.author.name || t.author.email} when={when(t.createdAt)} body={t.body}
-              canDelete={canEdit && (t.author.id === currentUserId)}
+            <Entry name={t.author?.name || t.author?.email || 'Unknown user'} when={when(t.created_at)} body={t.body}
+              canDelete={canEdit && (t.author?.id === currentUserId)}
               onDelete={() => remove(t.id)} />
 
             {t.replies.map((r) => (
-              <Entry key={r.id} reply name={r.author.name || r.author.email} when={when(r.createdAt)}
+              <Entry key={r.id} reply name={r.author?.name || r.author?.email || 'Unknown user'} when={when(r.created_at)}
                 body={r.body}
-                canDelete={canEdit && (r.author.id === currentUserId)}
+                canDelete={canEdit && (r.author?.id === currentUserId)}
                 onDelete={() => remove(r.id)} />
             ))}
 
@@ -116,11 +120,6 @@ export default function CommentsPanel({
                 ) : (
                   <button className="btn-link" onClick={() => setReplyFor(t.id)}>Reply</button>
                 )
-              )}
-              {canEdit && (
-                <button className="btn-link" onClick={() => toggleResolved(t)}>
-                  {t.resolved ? 'Reopen' : 'Resolve'}
-                </button>
               )}
             </div>
           </li>
