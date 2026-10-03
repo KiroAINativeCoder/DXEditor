@@ -72,11 +72,26 @@ function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
           </div>
         </div>
       ) : (
-        <div className="mermaid-preview" onDoubleClick={() => canEdit && setEditing(true)} title={canEdit ? 'Double-click to edit' : ''}>
+        <div
+          className="mermaid-preview"
+          onDoubleClick={() => {
+            if (svg) window.dispatchEvent(new CustomEvent('dx-mermaid-enlarge', { detail: svg }))
+          }}
+          title="Double-click to enlarge"
+        >
           {error ? (
             <div className="mermaid-error">⚠ {error}</div>
           ) : (
             <div className="mermaid-svg" dangerouslySetInnerHTML={{ __html: svg }} />
+          )}
+          {svg && (
+            <button
+              className="mermaid-enlarge-btn"
+              title="Enlarge"
+              onClick={() => window.dispatchEvent(new CustomEvent('dx-mermaid-enlarge', { detail: svg }))}
+            >
+              ⤢
+            </button>
           )}
           {canEdit && (
             <>

@@ -479,3 +479,14 @@
   position: absolute;
   pointer-events: none;
 }
+
+.mermaid-zoom-svg {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 94vw;
+  max-height: 92vh;
+  overflow: auto;
+  cursor: default;
+}
+.mermaid-zoom-svg svg { width: auto; height: auto; max-width: 100%; }

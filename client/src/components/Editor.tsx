@@ -520,6 +520,23 @@ function CollabEditor({
     scroll.addEventListener('dblclick', onDblClick)
     return () => scroll.removeEventListener('dblclick', onDblClick)
   }, [])
+
+  // Mermaid diagram enlarge: the NodeView dispatches the rendered SVG.
+  const [mermaidZoom, setMermaidZoom] = useState<string | null>(null)
+  useEffect(() => {
+    const onEnlarge = (e: Event) => {
+      const svg = (e as CustomEvent<string>).detail
+      if (svg) setMermaidZoom(svg)
+    }
+    window.addEventListener('dx-mermaid-enlarge', onEnlarge)
+    return () => window.removeEventListener('dx-mermaid-enlarge', onEnlarge)
+  }, [])
+  useEffect(() => {
+    if (!mermaidZoom) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMermaidZoom(null)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [mermaidZoom])
   useEffect(() => {
     if (!lightbox) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setLightbox(null)
@@ -695,6 +712,19 @@ function CollabEditor({
             ✕
           </button>
           <img src={lightbox} alt="" className="img-lightbox-img" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
+      {mermaidZoom && (
+        <div className="img-lightbox" onClick={() => setMermaidZoom(null)}>
+          <button className="img-lightbox-close" onClick={() => setMermaidZoom(null)} aria-label="Close">
+            ✕
+          </button>
+          <div
+            className="mermaid-zoom-svg"
+            onClick={(e) => e.stopPropagation()}
+            dangerouslySetInnerHTML={{ __html: mermaidZoom }}
+          />
         </div>
       )}
 
