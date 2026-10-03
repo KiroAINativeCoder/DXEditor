@@ -447,18 +447,49 @@ function CollabEditor({
     },
   })
 
-  // Upload an image file to storage, then insert it at the current selection.
+  // Optimistic image insert: show a LOCAL preview immediately (so paste/drop
+  // feels instant), upload in the background, then swap the temporary blob src
+  // for the uploaded public URL. The real URL is what syncs to collaborators
+  // and persists; the blob URL is local to this client only.
   const uploadAndInsert = useCallback(
     async (file: File) => {
       if (!editor) return
+      const tempSrc = URL.createObjectURL(file)
+      // Insert the preview right away at the current selection.
+      editor.chain().focus().setImage({ src: tempSrc }).run()
+
       try {
         const url = await images.upload(docId, file)
-        editor.chain().focus().setImage({ src: url }).run()
+        // Find the node still holding the temp src and replace it with the URL.
+        let pos: number | null = null
+        let attrs: Record<string, unknown> = {}
+        editor.state.doc.descendants((node, p) => {
+          if (node.type.name === 'image' && node.attrs.src === tempSrc) {
+            pos = p
+            attrs = node.attrs
+            return false
+          }
+          return true
+        })
+        if (pos !== null) {
+          editor.chain().command(({ tr }) => {
+            tr.setNodeMarkup(pos!, undefined, { ...attrs, src: url })
+            return true
+          }).run()
+        }
       } catch (e) {
-        // Surface failures without crashing the editor.
-        // eslint-disable-next-line no-console
-        console.error('Image upload failed', e)
+        // Remove the failed preview node and tell the user.
+        let pos: number | null = null
+        editor.state.doc.descendants((node, p) => {
+          if (node.type.name === 'image' && node.attrs.src === tempSrc) { pos = p; return false }
+          return true
+        })
+        if (pos !== null) {
+          editor.chain().command(({ tr }) => { tr.delete(pos!, pos! + 1); return true }).run()
+        }
         window.alert(e instanceof Error ? e.message : 'Image upload failed')
+      } finally {
+        URL.revokeObjectURL(tempSrc)
       }
     },
     [editor, docId],
