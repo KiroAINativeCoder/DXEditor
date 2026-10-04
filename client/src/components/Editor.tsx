@@ -92,6 +92,7 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
     try {
       await docs.updateMeta(docId, { status: next })
       onTitleSaved()
+      setReviewRefresh((k) => k + 1) // reload the review panel for the new status
     } catch {
       setDocStatus(prev) // revert on failure
     }
@@ -425,11 +426,13 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
                 //    while IN_REVIEW → ACCEPTED
                 //  - any changes requested after ACCEPTED → back to IN_REVIEW
                 // Never override a terminal human decision (REJECTED/SUPERSEDED).
-                if (verdict === 'approved' && docStatus === 'IN_REVIEW') {
-                  void changeStatus('ACCEPTED')
-                } else if (verdict === 'changes' && docStatus === 'ACCEPTED') {
-                  void changeStatus('IN_REVIEW')
-                }
+                // Read the LIVE status via the functional setter so the value
+                // isn't narrowed to 'IN_REVIEW' by the surrounding JSX guard.
+                setDocStatus((cur) => {
+                  if (verdict === 'approved' && cur === 'IN_REVIEW') void changeStatus('ACCEPTED')
+                  else if (verdict === 'changes' && cur === 'ACCEPTED') void changeStatus('IN_REVIEW')
+                  return cur
+                })
               }}
             />
           )}
