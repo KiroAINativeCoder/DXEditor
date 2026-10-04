@@ -20,12 +20,14 @@ import VersionPanel from './VersionPanel'
 import Menu from './Menu'
 import { CommentMark } from './CommentMark'
 import { MermaidNode } from './Mermaid'
-import { docs, comments, images, type Role, type Thread as ThreadT } from '../lib/api'
+import { docs, comments, images, type Role, type Thread as ThreadT, type DocStatus } from '../lib/api'
 import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import AiSettingsModal from './AiSettingsModal'
 import AiRewritePopover from './AiRewritePopover'
 import { type AiMode, sanitizeTableHtml } from '../lib/ai'
+import ReviewBar from './ReviewBar'
+import { statusMeta, DOC_STATUSES } from '../lib/rfc'
 import './Editor.css'
 
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
@@ -60,12 +62,13 @@ export const FONT_OPTIONS: { key: FontKey; label: string }[] = [
 type Props = {
   docId: string
   initialTitle: string
+  initialStatus: DocStatus
   role: Role
   currentUserId: string
   onTitleSaved: () => void
 }
 
-export default function Editor({ docId, initialTitle, role, currentUserId, onTitleSaved }: Props) {
+export default function Editor({ docId, initialTitle, initialStatus, role, currentUserId, onTitleSaved }: Props) {
   const identity = useMemo(makeIdentity, [])
   const [conn, setConn] = useState<{ ydoc: Y.Doc; provider: WebsocketProvider } | null>(null)
   const [status, setStatus] = useState<Status>('connecting')
@@ -73,6 +76,27 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
   const [title, setTitle] = useState(initialTitle)
   const titleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const canEdit = role === 'OWNER' || role === 'EDITOR'
+  // Owner/MANAGER manage the review process (status + mandatory reviewers).
+  const canManage = role === 'OWNER' || role === 'MANAGER'
+
+  // Doc lifecycle status. The review UI is active only while IN_REVIEW.
+  // Status changes refresh the sidebar via onTitleSaved (generic meta signal).
+  const [docStatus, setDocStatus] = useState<DocStatus>(initialStatus)
+  const [statusOpen, setStatusOpen] = useState(false)
+  async function changeStatus(next: DocStatus) {
+    setStatusOpen(false)
+    if (next === docStatus) return
+    const prev = docStatus
+    setDocStatus(next) // optimistic
+    try {
+      await docs.updateMeta(docId, { status: next })
+      onTitleSaved()
+    } catch {
+      setDocStatus(prev) // revert on failure
+    }
+  }
+  // Bumped to force the review panel to reload reviewers/reviews.
+  const [reviewRefresh, setReviewRefresh] = useState(0)
 
   // --- Versioning: capture/apply the live Yjs state as a base64 update. ---
   function snapshotUpdate(): string | null {
@@ -310,6 +334,57 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
         </div>
 
         <div className="topbar-right">
+          <div className="status-pill-wrap">
+            <button
+              className="status-pill"
+              style={{ ['--pill-color' as string]: statusMeta(docStatus).color }}
+              disabled={!canEdit}
+              onClick={() => canEdit && setStatusOpen((v) => !v)}
+              title={canEdit ? 'Change status' : 'Status'}
+            >
+              <span className="status-dot" />
+              {statusMeta(docStatus).label}
+              {canEdit && <span className="status-caret">▾</span>}
+            </button>
+            {statusOpen && (
+              <div className="status-menu" onMouseLeave={() => setStatusOpen(false)}>
+                {DOC_STATUSES.map((s) => (
+                  <button
+                    key={s.value}
+                    className={`status-menu-item${s.value === docStatus ? ' is-current' : ''}`}
+                    onClick={() => changeStatus(s.value)}
+                  >
+                    <span className="status-dot" style={{ background: s.color }} />
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Review controls appear ONLY while the doc is in review. */}
+          {docStatus === 'IN_REVIEW' && (
+            <ReviewBar
+              docId={docId}
+              currentUserId={currentUserId}
+              canManage={canManage}
+              refreshKey={reviewRefresh}
+              onConsensus={(verdict) => {
+                if (!canEdit) return
+                // Reconcile status from the mandatory-reviewer consensus:
+                //  - all mandatory reviewers approved (none requesting changes)
+                //    while IN_REVIEW → ACCEPTED
+                //  - any changes requested after ACCEPTED → back to IN_REVIEW
+                // Never override a terminal human decision (REJECTED/SUPERSEDED).
+                if (verdict === 'approved' && docStatus === 'IN_REVIEW') {
+                  void changeStatus('ACCEPTED')
+                } else if (verdict === 'changes' && docStatus === 'ACCEPTED') {
+                  void changeStatus('IN_REVIEW')
+                }
+              }}
+            />
+          )}
+
           <button
             className={`comments-btn${showVersions ? ' is-active' : ''}`}
             onClick={() => setShowVersions((v) => !v)}

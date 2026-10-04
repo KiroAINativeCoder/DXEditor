@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { docs as docsApi, type DocMeta } from '../lib/api'
+import { statusMeta } from '../lib/rfc'
 import './Sidebar.css'
 
 type Props = {
   selectedId: string | null
   onSelect: (id: string) => void
-  /** Bumped by the editor when it renames the open doc, to refresh titles. */
+  /** Bumped by the editor when it renames/updates the open doc, to refresh. */
   refreshKey: number
 }
 
@@ -61,22 +62,31 @@ export default function Sidebar({ selectedId, onSelect, refreshKey }: Props) {
       )}
 
       <ul className="doc-list">
-        {items.map((d) => (
-          <li
-            key={d.id}
-            className={`doc-item${d.id === selectedId ? ' is-selected' : ''}`}
-            onClick={() => onSelect(d.id)}
-          >
-            <span className="doc-item-title">{d.title || 'Untitled document'}</span>
-            <button
-              className="doc-del"
-              title="Delete"
-              onClick={(e) => deleteDoc(d.id, e)}
+        {items.map((d) => {
+          const sm = statusMeta(d.status)
+          // Draft is the quiet default — only badge a doc that has moved along.
+          const showStatus = d.status !== 'DRAFT'
+          return (
+            <li
+              key={d.id}
+              className={`doc-item${d.id === selectedId ? ' is-selected' : ''}`}
+              onClick={() => onSelect(d.id)}
             >
-              ✕
-            </button>
-          </li>
-        ))}
+              <div className="doc-item-main">
+                <span className="doc-item-title">{d.title || 'Untitled document'}</span>
+                {showStatus && (
+                  <span className="doc-tag doc-tag-status" style={{ color: sm.color }}>
+                    <span className="doc-tag-dot" style={{ background: sm.color }} />
+                    {sm.label}
+                  </span>
+                )}
+              </div>
+              <button className="doc-del" title="Delete" onClick={(e) => deleteDoc(d.id, e)}>
+                ✕
+              </button>
+            </li>
+          )
+        })}
       </ul>
     </aside>
   )

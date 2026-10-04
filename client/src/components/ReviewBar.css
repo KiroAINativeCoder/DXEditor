@@ -1,0 +1,125 @@
+.review-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rv-reviewers {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.rv-empty {
+  font: 12px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #9ca3af;
+}
+.rv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #374151;
+  font: 12px/1 ui-sans-serif, system-ui, sans-serif;
+}
+.rv-chip.is-approved {
+  background: #dcfce7;
+  color: #166534;
+}
+.rv-chip.is-changes {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.rv-chip-x {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.5;
+  font-size: 10px;
+  padding: 0 0 0 2px;
+}
+.rv-chip-x:hover {
+  opacity: 1;
+}
+.rv-progress {
+  font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #374151;
+  padding: 0 4px;
+}
+
+.rv-add-wrap {
+  position: relative;
+}
+.rv-add {
+  padding: 4px 10px;
+  border: 1px dashed #c7cad1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font: 12px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #4b5563;
+}
+.rv-pick-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  padding: 4px;
+}
+.rv-pick-menu button {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 13px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #374151;
+  text-align: left;
+}
+.rv-pick-menu button:hover {
+  background: #f3f4f6;
+}
+.rv-pick-empty {
+  padding: 8px 10px;
+  font: 12px/1.3 ui-sans-serif, system-ui, sans-serif;
+  color: #9ca3af;
+}
+
+.review-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+.rv-btn {
+  padding: 4px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font: 12px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #374151;
+}
+.rv-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.rv-btn-approve.is-active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.rv-btn-changes.is-active {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}

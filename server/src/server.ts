@@ -252,6 +252,38 @@ app.delete('/api/docs/:id/versions/:vid', requireAuth, async (req, res) => {
   res.json({ ok: true })
 })
 
+// ------------------------------------------------------------- reviews
+// List a document's reviews (PR-style approvals) with reviewer details resolved
+// via the service role — same rationale as /comments: a reviewer's app_user row
+// may be RLS-hidden from the current reader, which would null the join. Verify
+// the caller can access the doc, then return resolved rows.
+app.get('/api/docs/:id/reviews', requireAuth, async (req, res) => {
+  const callerId = req.user!.id
+  const docId = req.params.id
+
+  const { data: doc } = await admin.from('document').select('owner_id').eq('id', docId).maybeSingle()
+  if (!doc) return res.status(404).json({ error: 'Document not found' })
+  let allowed = doc.owner_id === callerId
+  if (!allowed) {
+    const { data: mem } = await admin
+      .from('membership')
+      .select('user_id')
+      .eq('document_id', docId)
+      .eq('user_id', callerId)
+      .maybeSingle()
+    allowed = !!mem
+  }
+  if (!allowed) return res.status(403).json({ error: 'No access to this document' })
+
+  const { data, error } = await admin
+    .from('review')
+    .select('id,document_id,state,note,created_at,reviewer:app_user(id,email,name)')
+    .eq('document_id', docId)
+    .order('created_at', { ascending: true })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data ?? [])
+})
+
 // The collab relay is a raw WebSocket and reads its token from the query
 // string. The browser already holds a Supabase access token; this endpoint
 // simply echoes the verified identity so the client knows the token is good
