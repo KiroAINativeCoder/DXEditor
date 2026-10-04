@@ -278,8 +278,24 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
     // Do NOT derive immediately on mount — the Yjs doc may still be empty before
     // sync. Only react to real content changes (sync + typing).
     ed.on('update', derive)
+    // One-time reconcile AFTER content has synced: an existing doc whose stored
+    // title drifted from its first line (edited elsewhere) should correct on
+    // open, not only when the user types. Poll briefly for non-empty content,
+    // derive once, then stop. The empty-doc guard above still prevents clobber.
+    let tries = 0
+    const t = setInterval(() => {
+      tries += 1
+      const hasText = ed.state.doc.textContent.trim().length > 0
+      if (hasText) {
+        derive()
+        clearInterval(t)
+      } else if (tries > 20) {
+        clearInterval(t) // give up after ~5s; empty doc, nothing to derive
+      }
+    }, 250)
     return () => {
       ed.off('update', derive)
+      clearInterval(t)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ed, canEdit])
