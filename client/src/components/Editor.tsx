@@ -28,6 +28,7 @@ import AiRewritePopover from './AiRewritePopover'
 import { type AiMode, sanitizeTableHtml } from '../lib/ai'
 import ReviewBar from './ReviewBar'
 import { statusMeta, DOC_STATUSES } from '../lib/rfc'
+import { docToMarkdown, markdownToDoc } from '../lib/markdown'
 import './Editor.css'
 
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
@@ -162,6 +163,40 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
     }
   }
 
+  // --- Phase 4: Markdown round-trip (docs-as-code) ---
+  const mdInputRef = useRef<HTMLInputElement | null>(null)
+
+  // Export the current doc to a .md download. Mermaid blocks round-trip as
+  // fenced ```mermaid, so the file drops cleanly into a Git repo.
+  function exportMarkdown() {
+    if (!ed) return
+    const md = docToMarkdown(ed.getJSON() as Parameters<typeof docToMarkdown>[0])
+    const safe = (title || 'document').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'document'
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${safe}.md`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  // Import a .md file, REPLACING the document body. Confirm first because this
+  // overwrites the shared Yjs content for every collaborator.
+  async function importMarkdownFile(file: File) {
+    if (!ed || !canEdit) return
+    if (!window.confirm('Replace the entire document with the contents of this Markdown file?')) return
+    try {
+      const text = await file.text()
+      const doc = markdownToDoc(text)
+      ed.chain().focus().setContent(doc).run()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Could not import Markdown')
+    }
+  }
+
   useEffect(() => {
     let provider: WebsocketProvider | null = null
     let ydoc: Y.Doc | null = null
@@ -271,6 +306,17 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
           e.target.value = '' // allow re-selecting the same file
         }}
       />
+      <input
+        ref={mdInputRef}
+        type="file"
+        accept=".md,.markdown,text/markdown"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) void importMarkdownFile(f)
+          e.target.value = ''
+        }}
+      />
       <div className="editor-topbar">
         <div className="title-block">
           <input
@@ -286,6 +332,9 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
               label="Document"
               items={[
                 { label: 'Title follows the first line', disabled: true },
+                { separator: true, label: '' },
+                { label: 'Export as Markdown…', onClick: exportMarkdown },
+                { label: 'Import Markdown…', disabled: !canEdit, onClick: () => mdInputRef.current?.click() },
               ]}
             />
             <Menu
