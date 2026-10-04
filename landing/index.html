@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DevDocs — open-source collaborative docs</title>
+  <meta name="description" content="DevDocs is an open-source, self-hostable, real-time collaborative document editor. A modern replacement for Quip." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --blue: #2567f4; --ink: #1f2328; --muted: #6b7177; --line: #e6e6e3; --bg: #faf9f7; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--ink); background: #fff; line-height: 1.5; }
+    a { color: inherit; text-decoration: none; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+    header { border-bottom: 1px solid var(--line); position: sticky; top: 0; background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); z-index: 10; }
+    .nav { display: flex; align-items: center; gap: 12px; height: 64px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+    .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--blue); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+    .nav .spacer { flex: 1; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; padding: 10px 18px; font-weight: 600; font-size: 15px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+    .btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .btn.primary:hover { background: #1a56da; }
+    .btn.ghost:hover { background: var(--bg); }
+
+    .hero { text-align: center; padding: 96px 0 72px; }
+    .pill { display: inline-block; font-size: 13px; font-weight: 600; color: var(--blue); background: #e9f0ff; border-radius: 999px; padding: 6px 14px; margin-bottom: 22px; }
+    .hero h1 { font-size: 52px; line-height: 1.08; letter-spacing: -0.02em; margin-bottom: 20px; }
+    .hero p { font-size: 20px; color: var(--muted); max-width: 640px; margin: 0 auto 32px; }
+    .cta { display: flex; gap: 12px; justify-content: center; }
+
+    .section { padding: 56px 0; }
+    .section h2 { font-size: 30px; text-align: center; letter-spacing: -0.01em; margin-bottom: 10px; }
+    .section .sub { text-align: center; color: var(--muted); margin-bottom: 40px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .card { border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: #fff; }
+    .card .ic { font-size: 26px; margin-bottom: 12px; }
+    .card h3 { font-size: 17px; margin-bottom: 6px; }
+    .card p { color: var(--muted); font-size: 14px; }
+
+    .band { background: var(--bg); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .band .inner { text-align: center; padding: 72px 0; }
+    .band h2 { font-size: 32px; margin-bottom: 14px; }
+    .band p { color: var(--muted); font-size: 17px; margin-bottom: 28px; }
+
+    footer { padding: 40px 0; color: var(--muted); font-size: 14px; text-align: center; }
+    footer a { color: var(--blue); }
+    @media (max-width: 640px) { .hero h1 { font-size: 36px; } .hero p { font-size: 17px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <div class="brand"><span class="mark">DD</span> DevDocs</div>
+      <span class="spacer"></span>
+      <a class="btn ghost" href="https://github.com/KiroAINativeCoder/DXEditor" target="_blank" rel="noopener">GitHub</a>
+      <a class="btn primary" href="//app.devdocs.trailmark.online/">Open the app</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <span class="pill">Quip is being deprecated. Own your docs instead.</span>
+        <h1>Collaborative docs,<br/>open source and self-hosted.</h1>
+        <p>DevDocs is a real-time collaborative document editor you can run yourself. Write together, comment, diagram, and keep full control of your data.</p>
+        <div class="cta">
+          <a class="btn primary" href="//app.devdocs.trailmark.online/">Get started</a>
+          <a class="btn ghost" href="https://github.com/KiroAINativeCoder/DXEditor" target="_blank" rel="noopener">View on GitHub</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section wrap">
+      <h2>Everything you expect from a modern doc tool</h2>
+      <p class="sub">Built on Yjs, Tiptap and Supabase. No vendor lock-in.</p>
+      <div class="grid">
+        <div class="card"><div class="ic">👥</div><h3>Real-time collaboration</h3><p>Multiple people editing the same document live, with presence cursors. CRDT-backed, so no lost edits.</p></div>
+        <div class="card"><div class="ic">💬</div><h3>Inline comments</h3><p>Select text, start a thread, reply, and archive when resolved. Click any highlight to reopen the discussion.</p></div>
+        <div class="card"><div class="ic">🕑</div><h3>Version history</h3><p>Snapshot a document and restore any earlier version. A true revert, not just a diff view.</p></div>
+        <div class="card"><div class="ic">🖼️</div><h3>Images</h3><p>Drag, drop or paste screenshots. Stored in object storage so documents stay fast and lightweight.</p></div>
+        <div class="card"><div class="ic">📊</div><h3>Mermaid diagrams</h3><p>Write mermaid syntax and get live-rendered flowcharts, sequence diagrams and more, right in the doc.</p></div>
+        <div class="card"><div class="ic">🔐</div><h3>Sharing & permissions</h3><p>Share by email with view, edit or manage roles, enforced end to end by row-level security.</p></div>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="inner wrap">
+        <h2>Ready when you are</h2>
+        <p>Sign in and start writing. Your team, your server, your data.</p>
+        <a class="btn primary" href="//app.devdocs.trailmark.online/">Open DevDocs</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      Open source on <a href="https://github.com/KiroAINativeCoder/DXEditor" target="_blank" rel="noopener">GitHub</a>. Self-hostable. Built as a modern replacement for Quip.
+    </div>
+  </footer>
+</body>
+</html>
