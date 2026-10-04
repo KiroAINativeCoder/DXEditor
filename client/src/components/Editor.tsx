@@ -242,7 +242,12 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
     }
   }, [docId])
 
-  useEffect(() => setTitle(initialTitle), [initialTitle, docId])
+  // Reset the local title only when the DOCUMENT changes. Do NOT depend on
+  // initialTitle: a background refetch (triggered by saving a derived title)
+  // would otherwise reset `title` mid-type and oscillate with the first-line
+  // derive, which made the doc feel untypeable.
+  useEffect(() => setTitle(initialTitle), [docId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 
   // Derive the document title from the FIRST SENTENCE of the body (Quip/Notion
   // style). Whenever the editor content changes, take the first non-empty block,
