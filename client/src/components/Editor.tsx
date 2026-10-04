@@ -83,6 +83,10 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
   // Doc lifecycle status. The review UI is active only while IN_REVIEW.
   // Status changes refresh the sidebar via onTitleSaved (generic meta signal).
   const [docStatus, setDocStatus] = useState<DocStatus>(initialStatus)
+  // Keep the pill in sync when the parent refetches this doc's metadata (e.g.
+  // after a status change, or returning to the doc). Without this, a same-doc
+  // prop update would not refresh the locally-held status.
+  useEffect(() => setDocStatus(initialStatus), [initialStatus, docId])
   const [statusOpen, setStatusOpen] = useState(false)
   async function changeStatus(next: DocStatus) {
     setStatusOpen(false)
