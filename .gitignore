@@ -32,3 +32,6 @@ server/prisma/migrations/dev.db*
 
 # Yjs persistence (leveldb)
 server/y-leveldb/
+
+# Supabase CLI scratch
+server/supabase/.temp/

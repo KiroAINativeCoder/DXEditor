@@ -5,15 +5,34 @@ const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 export type User = { id: string; email: string; name: string | null }
 export type Role = 'OWNER' | 'EDITOR' | 'MANAGER' | 'VIEWER'
 
+// Design-doc review workflow. Every doc has a status lifecycle; the review UI
+// is active only while the doc is IN_REVIEW. Mandatory reviewers are named
+// (see the `reviewers` module) and chosen from the doc's existing members.
+export type DocStatus = 'DRAFT' | 'IN_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'SUPERSEDED'
+export type ReviewState = 'APPROVED' | 'CHANGES_REQUESTED'
+
 export type DocMeta = {
   id: string
   title: string
   owner_id: string
   isOwner: boolean
+  status: DocStatus
+  superseded_by: string | null
   created_at: string
   updated_at: string
 }
 export type DocDetail = DocMeta & { role: Role }
+
+export type Review = {
+  id: string
+  document_id: string
+  state: ReviewState
+  note: string | null
+  created_at: string
+  reviewer: User
+}
+// A named mandatory reviewer on a doc.
+export type DocReviewer = { id: string; user: User }
 export type Share = { id: string; role: 'EDITOR' | 'VIEWER' | 'MANAGER'; user: User }
 export type Comment = {
   id: string
@@ -118,7 +137,7 @@ export const docs = {
     const uid = await myId()
     const { data, error } = await supabase
       .from('document')
-      .select('id,title,owner_id,created_at,updated_at')
+      .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
       .order('updated_at', { ascending: false })
     if (error) throw new ApiError(500, error.message)
     return (data ?? []).map((d) => ({ ...d, isOwner: d.owner_id === uid }))
@@ -128,7 +147,7 @@ export const docs = {
     const uid = await myId()
     const { data, error } = await supabase
       .from('document')
-      .select('id,title,owner_id,created_at,updated_at')
+      .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
       .eq('id', id)
       .maybeSingle()
     if (error || !data) throw new ApiError(404, 'Document not found')
@@ -165,7 +184,7 @@ export const docs = {
 
     const { data, error: selErr } = await supabase
       .from('document')
-      .select('id,title,owner_id,created_at,updated_at')
+      .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
       .eq('owner_id', uid)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -176,6 +195,16 @@ export const docs = {
 
   updateTitle: async (id: string, title: string) => {
     const { error } = await supabase.from('document').update({ title }).eq('id', id)
+    if (error) throw new ApiError(403, error.message)
+  },
+
+  // Update doc lifecycle metadata (status, supersession). RLS
+  // (document_update → can_edit) gates this to owner / EDITOR / MANAGER.
+  updateMeta: async (
+    id: string,
+    patch: { status?: DocStatus; superseded_by?: string | null },
+  ) => {
+    const { error } = await supabase.from('document').update(patch).eq('id', id)
     if (error) throw new ApiError(403, error.message)
   },
 
@@ -348,6 +377,79 @@ export const versions = {
       headers: await authHeaders(),
     })
     if (!res.ok) throw new ApiError(res.status, `Could not delete version (${res.status})`)
+  },
+}
+
+// ---------------------------------------------------------------- reviews
+// PR-style approvals on a doc. Reads go through the server (service role) so a
+// reviewer's app_user name resolves even when RLS would hide that row from the
+// current reader — the same pattern comments.list uses. Writes go direct to
+// Supabase under RLS (a reviewer may only upsert/delete their OWN review).
+export const reviews = {
+  list: async (docId: string): Promise<Review[]> => {
+    const token = await accessToken()
+    const res = await fetch(`${BASE}/api/docs/${docId}/reviews`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+    if (!res.ok) throw new ApiError(res.status, `Could not load reviews (${res.status})`)
+    return (await res.json()) as Review[]
+  },
+
+  // Record (or replace) the caller's review. Plain upsert then select-back to
+  // avoid the inline INSERT…RETURNING RLS rejection seen elsewhere.
+  submit: async (docId: string, state: ReviewState, note?: string): Promise<void> => {
+    const uid = await myId()
+    const { error } = await supabase.from('review').upsert(
+      {
+        document_id: docId,
+        reviewer_id: uid,
+        state,
+        note: note?.trim() || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'document_id,reviewer_id' },
+    )
+    if (error) throw new ApiError(403, error.message)
+  },
+
+  withdraw: async (docId: string): Promise<void> => {
+    const uid = await myId()
+    const { error } = await supabase
+      .from('review')
+      .delete()
+      .eq('document_id', docId)
+      .eq('reviewer_id', uid)
+    if (error) throw new ApiError(403, error.message)
+  },
+}
+
+// ------------------------------------------------------ mandatory reviewers
+// Named reviewers who must approve before a doc can be ACCEPTED. Chosen from
+// the doc's existing members. Managed by owner/MANAGER (doc_reviewer RLS).
+export const reviewers = {
+  list: async (docId: string): Promise<DocReviewer[]> => {
+    const { data, error } = await supabase
+      .from('doc_reviewer')
+      .select('id,user:app_user(id,email,name)')
+      .eq('document_id', docId)
+    if (error) throw new ApiError(403, error.message)
+    return (data ?? []) as unknown as DocReviewer[]
+  },
+
+  add: async (docId: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('doc_reviewer')
+      .upsert({ document_id: docId, user_id: userId }, { onConflict: 'document_id,user_id' })
+    if (error) throw new ApiError(403, error.message)
+  },
+
+  remove: async (docId: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('doc_reviewer')
+      .delete()
+      .eq('document_id', docId)
+      .eq('user_id', userId)
+    if (error) throw new ApiError(403, error.message)
   },
 }
 

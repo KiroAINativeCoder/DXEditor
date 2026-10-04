@@ -16,7 +16,7 @@
   flex-shrink: 0;
 }
 
-.brand { display: flex; align-items: center; gap: 8px; }
+.brand { display: flex; align-items: center; gap: 8px; margin-right: auto; }
 
 .brand-mark {
   width: 26px;
@@ -67,7 +67,6 @@
 
 /* Quip-style blue Share button */
 .header-btn.share-primary {
-  margin-left: auto;
   background: #2567f4;
   border-color: #2567f4;
   color: #fff;
@@ -75,7 +74,6 @@
 .header-btn.share-primary:hover { background: #1a56da; border-color: #1a56da; }
 
 .role-badge {
-  margin-left: auto;
   font-size: 12px;
   color: #57606a;
   background: #f0efec;

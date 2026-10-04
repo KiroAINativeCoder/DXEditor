@@ -490,3 +490,77 @@
   cursor: default;
 }
 .mermaid-zoom-svg svg { width: auto; height: auto; max-width: 100%; }
+
+/* ---- RFC/design-doc workflow: type badge + status pill (Phase 1) ---- */
+.doc-type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: #3730a3;
+  font: 600 11px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.03em;
+}
+
+.status-pill-wrap {
+  position: relative;
+  display: inline-block;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--pill-color, #6b7280);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--pill-color, #6b7280);
+  font: 600 12px/1 ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+}
+.status-pill:disabled {
+  cursor: default;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pill-color, currentColor);
+}
+.status-caret {
+  font-size: 9px;
+  opacity: 0.7;
+}
+.status-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 50;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+}
+.status-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 13px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #374151;
+  text-align: left;
+}
+.status-menu-item:hover {
+  background: #f3f4f6;
+}
+.status-menu-item.is-current {
+  font-weight: 600;
+}
