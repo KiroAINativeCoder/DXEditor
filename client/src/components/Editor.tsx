@@ -87,6 +87,19 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
   // after a status change, or returning to the doc). Without this, a same-doc
   // prop update would not refresh the locally-held status.
   useEffect(() => setDocStatus(initialStatus), [initialStatus, docId])
+  // Live status: observe the shared Yjs 'meta' map so a status change by any
+  // connected client updates this tab's pill immediately (like the doc text).
+  useEffect(() => {
+    if (!conn) return
+    const meta = conn.ydoc.getMap('meta')
+    const apply = () => {
+      const s = meta.get('status')
+      if (typeof s === 'string') setDocStatus(s as DocStatus)
+    }
+    apply() // pick up a value already present from an earlier broadcast
+    meta.observe(apply)
+    return () => meta.unobserve(apply)
+  }, [conn])
   const [statusOpen, setStatusOpen] = useState(false)
   async function changeStatus(next: DocStatus) {
     setStatusOpen(false)
@@ -97,6 +110,9 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
       await docs.updateMeta(docId, { status: next })
       onTitleSaved()
       setReviewRefresh((k) => k + 1) // reload the review panel for the new status
+      // Broadcast to other connected clients via the shared Yjs doc so their
+      // status pill updates live (same mechanism as the document text).
+      conn?.ydoc.getMap('meta').set('status', next)
     } catch {
       setDocStatus(prev) // revert on failure
     }
