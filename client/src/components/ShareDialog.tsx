@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { shares as sharesApi, ApiError, type Share, type Role } from '../lib/api'
+import Select from './Select'
 import './ShareDialog.css'
 
 type ShareRole = 'VIEWER' | 'EDITOR' | 'MANAGER'
@@ -73,12 +74,16 @@ export default function ShareDialog({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <select value={role} onChange={(e) => setRole(e.target.value as ShareRole)}>
-            <option value="EDITOR">Can edit</option>
-            <option value="VIEWER">Can view</option>
-            {/* Only the owner may grant the manage (share) capability. */}
-            {isOwner && <option value="MANAGER">Can manage</option>}
-          </select>
+          <Select<ShareRole>
+            value={role}
+            onChange={(val) => setRole(val)}
+            options={[
+              { value: 'EDITOR', label: 'Can edit' },
+              { value: 'VIEWER', label: 'Can view' },
+              ...(isOwner ? [{ value: 'MANAGER' as ShareRole, label: 'Can manage' }] : []),
+            ]}
+            ariaLabel="Share role"
+          />
           <button type="submit" disabled={busy}>Share</button>
         </form>
 

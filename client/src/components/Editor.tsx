@@ -23,6 +23,9 @@ import { MermaidNode } from './Mermaid'
 import { docs, comments, images, type Role, type Thread as ThreadT } from '../lib/api'
 import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
+import AiSettingsModal from './AiSettingsModal'
+import AiRewritePopover from './AiRewritePopover'
+import { type AiMode, sanitizeTableHtml } from '../lib/ai'
 import './Editor.css'
 
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
@@ -30,8 +33,29 @@ const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
 type Status = 'connecting' | 'connected' | 'disconnected'
 
 // Document font options (Quip-style). The key maps to a CSS class on the
-// editor content; the stacks live in Editor.css. Selected from the Format menu.
-export type FontKey = 'sans' | 'serif' | 'mono'
+// editor content; the stacks live in Editor.css. Selected from the Format menu or Toolbar.
+export type FontKey =
+  | 'sans'
+  | 'inter'
+  | 'jakarta'
+  | 'serif'
+  | 'merriweather'
+  | 'playfair'
+  | 'mono'
+  | 'fira'
+  | 'casual'
+
+export const FONT_OPTIONS: { key: FontKey; label: string }[] = [
+  { key: 'sans', label: 'System Sans' },
+  { key: 'inter', label: 'Inter' },
+  { key: 'jakarta', label: 'Plus Jakarta' },
+  { key: 'serif', label: 'Georgia Serif' },
+  { key: 'merriweather', label: 'Merriweather' },
+  { key: 'playfair', label: 'Playfair Display' },
+  { key: 'mono', label: 'SF Mono' },
+  { key: 'fira', label: 'Fira Code' },
+  { key: 'casual', label: 'Casual Hand' },
+]
 
 type Props = {
   docId: string
@@ -86,6 +110,7 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
 
   const [showComments, setShowComments] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
+  const [globalAiSettingsOpen, setGlobalAiSettingsOpen] = useState(false)
   const [commentRefresh, setCommentRefresh] = useState(0)
   // Document font family (Quip-style). Persisted per-doc in localStorage; the
   // choice is view-local (not synced to collaborators) for this first version.
@@ -274,9 +299,11 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
                 { label: 'Underline', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleUnderline().run() },
                 { label: 'Strikethrough', disabled: !canEdit, onClick: () => ed?.chain().focus().toggleStrike().run() },
                 { separator: true, label: '' },
-                { label: 'Font: Sans-serif', checked: font === 'sans', onClick: () => changeFont('sans') },
-                { label: 'Font: Serif', checked: font === 'serif', onClick: () => changeFont('serif') },
-                { label: 'Font: Monospace', checked: font === 'mono', onClick: () => changeFont('mono') },
+                ...FONT_OPTIONS.map((f) => ({
+                  label: `Font: ${f.label}`,
+                  checked: font === f.key,
+                  onClick: () => changeFont(f.key),
+                })),
               ]}
             />
           </div>
@@ -297,8 +324,21 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
           >
             💬 Comments
           </button>
+          <button
+            className="comments-btn"
+            onClick={() => setGlobalAiSettingsOpen(true)}
+            title="AI Model & Key Settings"
+            style={{ color: '#7c3aed' }}
+          >
+            ✨ AI Settings
+          </button>
         </div>
       </div>
+
+      <AiSettingsModal
+        isOpen={globalAiSettingsOpen}
+        onClose={() => setGlobalAiSettingsOpen(false)}
+      />
 
       <div className="editor-with-panel">
         {conn ? (
@@ -309,6 +349,7 @@ export default function Editor({ docId, initialTitle, role, currentUserId, onTit
             identity={identity}
             editable={canEdit}
             font={font}
+            onChangeFont={changeFont}
             focusAnchor={focusAnchor}
             onEditorReady={setEd}
             onThreadCreated={() => {
@@ -367,6 +408,7 @@ function CollabEditor({
   identity,
   editable,
   font,
+  onChangeFont,
   focusAnchor,
   onThreadCreated,
   onEditorReady,
@@ -377,6 +419,7 @@ function CollabEditor({
   identity: Identity
   editable: boolean
   font: FontKey
+  onChangeFont: (font: FontKey) => void
   focusAnchor: string | null
   onThreadCreated: () => void
   onEditorReady?: (editor: TiptapEditor | null) => void
@@ -400,7 +443,12 @@ function CollabEditor({
       Placeholder.configure({ placeholder: 'Start writing…' }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true }),
+      Table.configure({
+        resizable: true,
+        handleWidth: 7,
+        cellMinWidth: 45,
+        lastColumnResizable: true,
+      }),
       TableRow,
       TableHeader,
       TableCell,
@@ -653,18 +701,196 @@ function CollabEditor({
     onThreadCreated()
   }, [editor, composer, docId, onThreadCreated])
 
+  // Floating AI rewrite popover state
+  const [aiPopover, setAiPopover] = useState<{
+    top: number
+    left: number
+    mode: AiMode
+    selectedText: string
+    contextBefore?: string
+    contextAfter?: string
+    from: number
+    to: number
+  } | null>(null)
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false)
+
+  const openAiPopover = useCallback(
+    (mode: AiMode = 'sentence') => {
+      if (!editor || !bubble) return
+      const { from, to } = editor.state.selection
+      if (from === to) return
+      const selectedText = editor.state.doc.textBetween(from, to, ' ')
+      const docSize = editor.state.doc.content.size
+      const contextBefore = editor.state.doc.textBetween(Math.max(0, from - 1000), from, ' ')
+      const contextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + 1000), ' ')
+      setAiPopover({
+        top: bubble.top + 34,
+        left: bubble.left,
+        mode,
+        selectedText,
+        contextBefore,
+        contextAfter,
+        from,
+        to,
+      })
+      setBubble(null)
+    },
+    [editor, bubble],
+  )
+
+  const triggerAiFromToolbar = useCallback(() => {
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    const docSize = editor.state.doc.content.size
+    if (from !== to) {
+      const start = editor.view.coordsAtPos(from)
+      const end = editor.view.coordsAtPos(to)
+      const selectedText = editor.state.doc.textBetween(from, to, ' ')
+      const contextBefore = editor.state.doc.textBetween(Math.max(0, from - 1000), from, ' ')
+      const contextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + 1000), ' ')
+      setAiPopover({
+        top: start.top + 30,
+        left: (start.left + end.left) / 2,
+        mode: 'sentence',
+        selectedText,
+        contextBefore,
+        contextAfter,
+        from,
+        to,
+      })
+    } else {
+      const $from = editor.state.selection.$from
+      const node = $from.parent
+      if (node && node.isTextblock && node.textContent.trim()) {
+        const startPos = $from.start()
+        const endPos = $from.end()
+        const coords = editor.view.coordsAtPos(startPos)
+        const contextBefore = editor.state.doc.textBetween(Math.max(0, startPos - 1000), startPos, ' ')
+        const contextAfter = editor.state.doc.textBetween(endPos, Math.min(docSize, endPos + 1000), ' ')
+        setAiPopover({
+          top: coords.top + 30,
+          left: coords.left + 140,
+          mode: 'sentence',
+          selectedText: node.textContent,
+          contextBefore,
+          contextAfter,
+          from: startPos,
+          to: endPos,
+        })
+      }
+    }
+  }, [editor])
+
+  const handleAiReplace = useCallback(
+    (newContent: string, _mode: AiMode) => {
+      if (!editor || !aiPopover) return
+      const { from, to } = aiPopover
+      const contentToInsert = newContent.includes('<table')
+        ? sanitizeTableHtml(newContent)
+        : newContent
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from, to })
+        .insertContent(contentToInsert)
+        .run()
+      setAiPopover(null)
+    },
+    [editor, aiPopover],
+  )
+
+  const handleAiInsertBelow = useCallback(
+    (newContent: string, _mode: AiMode) => {
+      if (!editor || !aiPopover) return
+      const { to } = aiPopover
+      const contentToInsert = newContent.includes('<table')
+        ? sanitizeTableHtml(newContent)
+        : newContent
+      editor
+        .chain()
+        .focus()
+        .setTextSelection(to)
+        .insertContent('<p></p>')
+        .insertContent(contentToInsert)
+        .run()
+      setAiPopover(null)
+    },
+    [editor, aiPopover],
+  )
+
   return (
     <div className="editor-scroll">
-      {bubble && editable && (
-        <button
-          className="comment-bubble"
+      {bubble && editable && !aiPopover && (
+        <div
+          className="ai-floating-bubble-bar"
           style={{ top: bubble.top, left: bubble.left }}
           onMouseDown={(e) => e.preventDefault()}
-          onClick={openComposer}
         >
-          💬 Comment
-        </button>
+          <button
+            type="button"
+            className="ai-bubble-btn ai-bubble-btn--glow"
+            onClick={() => openAiPopover('sentence')}
+            title="Polish with AI"
+          >
+            ✨ AI Polish
+          </button>
+          <div className="ai-bubble-divider" />
+          <button
+            type="button"
+            className="ai-bubble-btn"
+            onClick={() => openAiPopover('sentence')}
+            title="Crispify into concise sentence(s)"
+          >
+            ⚡ Crispify
+          </button>
+          <button
+            type="button"
+            className="ai-bubble-btn"
+            onClick={() => openAiPopover('bullet')}
+            title="Convert into bullet points"
+          >
+            📌 Bulletize
+          </button>
+          <button
+            type="button"
+            className="ai-bubble-btn"
+            onClick={() => openAiPopover('table')}
+            title="Auto-tabularize data points into rows & columns"
+          >
+            📊 Tabularize
+          </button>
+          <div className="ai-bubble-divider" />
+          <button
+            type="button"
+            className="ai-bubble-btn"
+            onClick={openComposer}
+            title="Add a comment"
+          >
+            💬 Comment
+          </button>
+        </div>
       )}
+
+      {aiPopover && (
+        <AiRewritePopover
+          top={aiPopover.top}
+          left={aiPopover.left}
+          initialMode={aiPopover.mode}
+          selectedText={aiPopover.selectedText}
+          contextBefore={aiPopover.contextBefore}
+          contextAfter={aiPopover.contextAfter}
+          onReplace={handleAiReplace}
+          onInsertBelow={handleAiInsertBelow}
+          onClose={() => setAiPopover(null)}
+          onOpenSettings={() => setAiSettingsOpen(true)}
+        />
+      )}
+
+      <AiSettingsModal
+        isOpen={aiSettingsOpen}
+        onClose={() => setAiSettingsOpen(false)}
+      />
+
       {composer && editable && (
         <div
           className="comment-popover comment-composer"
@@ -703,7 +929,15 @@ function CollabEditor({
           </div>
         </div>
       )}
-      {editable && <Toolbar editor={editor} />}
+      {editable && (
+        <Toolbar
+          editor={editor}
+          font={font}
+          onChangeFont={onChangeFont}
+          onOpenAi={triggerAiFromToolbar}
+          onOpenAiSettings={() => setAiSettingsOpen(true)}
+        />
+      )}
       <EditorContent editor={editor} className={`editor-content font-${font}`} />
 
       {lightbox && (

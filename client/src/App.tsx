@@ -17,6 +17,14 @@ function idFromPath(): string | null {
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('dx_theme') as 'light' | 'dark') || 'light'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('dx_theme', theme)
+  }, [theme])
 
   // Selection is driven by the URL so every document is shareable by link.
   const [selectedId, setSelectedId] = useState<string | null>(idFromPath())
@@ -112,6 +120,15 @@ export default function App() {
           <span className="role-badge">{roleLabel}</span>
         )}
         <div className="header-user">
+          <button
+            type="button"
+            className="theme-toggle-btn"
+            onClick={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           <span className="user-email">{user.name || user.email}</span>
           <button className="header-btn ghost" onClick={logout}>Log out</button>
         </div>

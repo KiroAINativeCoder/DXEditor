@@ -1,7 +1,15 @@
 import type { Editor } from '@tiptap/react'
+import Select from './Select'
+import { type FontKey, FONT_OPTIONS } from './Editor'
 import './Toolbar.css'
 
-type Props = { editor: Editor | null }
+type Props = {
+  editor: Editor | null
+  font?: FontKey
+  onChangeFont?: (font: FontKey) => void
+  onOpenAi?: () => void
+  onOpenAiSettings?: () => void
+}
 
 function Btn({
   label,
@@ -41,7 +49,13 @@ const BLOCK_LABELS: Record<BlockType, string> = {
   h3: 'Heading 3',
 }
 
-export default function Toolbar({ editor }: Props) {
+export default function Toolbar({
+  editor,
+  font,
+  onChangeFont,
+  onOpenAi,
+  onOpenAiSettings,
+}: Props) {
   if (!editor) return null
 
   // Current block type, for the dropdown's displayed value.
@@ -72,19 +86,32 @@ export default function Toolbar({ editor }: Props) {
       <span className="tb-sep" />
 
       {/* Block type dropdown */}
-      <select
-        className="tb-block-select"
+      <Select<BlockType>
+        className="tb-block-select-wrapper"
         value={current}
-        onChange={(e) => setBlock(e.target.value as BlockType)}
-        aria-label="Paragraph style"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {(Object.keys(BLOCK_LABELS) as BlockType[]).map((t) => (
-          <option key={t} value={t}>
-            {BLOCK_LABELS[t]}
-          </option>
-        ))}
-      </select>
+        onChange={setBlock}
+        options={(Object.keys(BLOCK_LABELS) as BlockType[]).map((t) => ({
+          value: t,
+          label: BLOCK_LABELS[t],
+        }))}
+        size="sm"
+        ariaLabel="Paragraph style"
+      />
+
+      {/* Font dropdown */}
+      {font && onChangeFont && (
+        <Select<FontKey>
+          className="tb-font-select-wrapper"
+          value={font}
+          onChange={onChangeFont}
+          options={FONT_OPTIONS.map((f) => ({
+            value: f.key,
+            label: f.label,
+          }))}
+          size="sm"
+          ariaLabel="Font family"
+        />
+      )}
 
       <span className="tb-sep" />
 
@@ -122,6 +149,53 @@ export default function Toolbar({ editor }: Props) {
         <Btn title="Divider" label="―"
           onClick={() => editor.chain().focus().setHorizontalRule().run()} />
       </div>
+
+      {editor.isActive('table') && (
+        <>
+          <span className="tb-sep" />
+          <div className="tb-group tb-table-controls">
+            <span className="tb-insert-label" style={{ fontWeight: 600 }}>Table:</span>
+            <Btn title="Add row below" label="+ Row"
+              onClick={() => editor.chain().focus().addRowAfter().run()} />
+            <Btn title="Delete current row" label="- Row"
+              onClick={() => editor.chain().focus().deleteRow().run()} />
+            <Btn title="Add column right" label="+ Col"
+              onClick={() => editor.chain().focus().addColumnAfter().run()} />
+            <Btn title="Delete current column" label="- Col"
+              onClick={() => editor.chain().focus().deleteColumn().run()} />
+            <Btn title="Delete table" label="🗑"
+              onClick={() => editor.chain().focus().deleteTable().run()} />
+          </div>
+        </>
+      )}
+
+      {onOpenAi && (
+        <>
+          <span className="tb-sep" />
+          <div className="tb-group">
+            <button
+              type="button"
+              className="tb-ai-btn"
+              title="AI Polish selected text (Crispify or Bulletize)"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onOpenAi}
+            >
+              ✨ AI Polish
+            </button>
+            {onOpenAiSettings && (
+              <button
+                type="button"
+                className="tb-btn tb-ai-gear"
+                title="AI Provider & Model Settings"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={onOpenAiSettings}
+              >
+                ⚙️
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
