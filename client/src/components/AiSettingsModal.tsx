@@ -20,6 +20,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
   const [key, setKey] = useState<string>(
     localStorage.getItem(`dx_key_${current.provider}`) || '',
   )
+  const [showKey, setShowKey] = useState(false)
 
   if (!isOpen) return null
 
@@ -99,16 +100,30 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
           <div className="ai-field-label" style={{ marginTop: '16px' }}>
             API Key <span className="ai-required">(required)</span>
           </div>
-          <input
-            type="password"
-            className="ai-key-input"
-            placeholder={currentCfg.placeholder}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-          />
+          <div className="ai-key-input-wrap">
+            <input
+              type={showKey ? 'text' : 'password'}
+              className="ai-key-input"
+              placeholder={currentCfg.placeholder}
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+            />
+            <button
+              type="button"
+              className="ai-key-reveal"
+              onClick={() => setShowKey((v) => !v)}
+              title={showKey ? 'Hide key' : 'Show key'}
+              aria-label={showKey ? 'Hide key' : 'Show key'}
+            >
+              {showKey ? 'Hide' : 'Show'}
+            </button>
+          </div>
           <div className="ai-key-hint">
-            Stored locally in your browser's <code>localStorage</code>. An API key is
-            required to use the AI features.
+            {key
+              ? 'A saved key is loaded for this provider — click Show to reveal it.'
+              : 'Stored locally in your browser\u2019s '}
+            {!key && <code>localStorage</code>}
+            {!key && '. An API key is required to use the AI features.'}
           </div>
         </div>
 

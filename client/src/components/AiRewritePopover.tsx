@@ -131,14 +131,14 @@ export default function AiRewritePopover({
       <div className="ai-pop-header">
         <div className="ai-pop-badge">
           {mode === 'sentence'
-            ? '✨ Crispify (Sentence)'
+            ? 'Crispify (Sentence)'
             : mode === 'bullet'
-            ? '📌 Bulletize (Points)'
-            : '📊 Tabularize (Data Table)'}
+            ? 'Bulletize (Points)'
+            : 'Tabularize (Data Table)'}
         </div>
-        <div className="ai-pop-model-tag" onClick={onOpenSettings} title="Click to change model/key">
+        <div className="ai-pop-model-tag" onClick={onOpenSettings} title="Change model or API key">
           <span>{providerMeta.name} · {modelShort}</span>
-          <span className="ai-pop-gear">⚙️</span>
+          <span className="ai-pop-change">Change</span>
         </div>
       </div>
 
@@ -149,21 +149,21 @@ export default function AiRewritePopover({
           className={`ai-switch-btn ${mode === 'sentence' ? 'active' : ''}`}
           onClick={() => handleModeSwitch('sentence')}
         >
-          ⚡ Crisp Sentence
+          Crisp Sentence
         </button>
         <button
           type="button"
           className={`ai-switch-btn ${mode === 'bullet' ? 'active' : ''}`}
           onClick={() => handleModeSwitch('bullet')}
         >
-          📌 Bullet Points
+          Bullet Points
         </button>
         <button
           type="button"
           className={`ai-switch-btn ${mode === 'table' ? 'active' : ''}`}
           onClick={() => handleModeSwitch('table')}
         >
-          📊 Tabularize
+          Tabularize
         </button>
       </div>
 
@@ -221,7 +221,7 @@ export default function AiRewritePopover({
                 className="ai-error-action-btn primary"
                 onClick={onOpenSettings}
               >
-                ⚙️ Switch Model or Key
+                Switch Model or Key
               </button>
               <button
                 type="button"
@@ -241,14 +241,14 @@ export default function AiRewritePopover({
                 className="ai-warning-btn"
                 onClick={() => handleModeSwitch('sentence')}
               >
-                ⚡ Switch to Crisp Sentence
+                Switch to Crisp Sentence
               </button>
               <button
                 type="button"
                 className="ai-warning-btn"
                 onClick={() => handleModeSwitch('bullet')}
               >
-                📌 Switch to Bullet Points
+                Switch to Bullet Points
               </button>
             </div>
           </div>

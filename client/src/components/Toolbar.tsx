@@ -176,11 +176,11 @@ export default function Toolbar({
             <button
               type="button"
               className="tb-ai-btn"
-              title="AI Polish selected text (Crispify or Bulletize)"
+              title="AI Buddy — rewrite selected text (Crispify or Bulletize)"
               onMouseDown={(e) => e.preventDefault()}
               onClick={onOpenAi}
             >
-              ✨ AI Polish
+              AI Buddy
             </button>
             {onOpenAiSettings && (
               <button

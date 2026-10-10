@@ -211,6 +211,31 @@
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
+.ai-key-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ai-key-input-wrap .ai-key-input {
+  padding-right: 60px;
+}
+.ai-key-reveal {
+  position: absolute;
+  right: 6px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 6px;
+  color: #3b82f6;
+}
+.ai-key-reveal:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
 .ai-key-hint {
   font-size: 11.5px;
   color: #64748b;

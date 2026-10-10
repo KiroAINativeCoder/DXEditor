@@ -1046,9 +1046,9 @@ function CollabEditor({
             type="button"
             className="ai-bubble-btn ai-bubble-btn--glow"
             onClick={() => openAiPopover('sentence')}
-            title="Polish with AI"
+            title="AI Buddy"
           >
-            ✨ AI Polish
+            AI Buddy
           </button>
           <div className="ai-bubble-divider" />
           <button

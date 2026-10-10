@@ -40,7 +40,6 @@ export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
     tagColor: '#2563eb',
     icon: '',
     models: [
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', badge: 'Ultra Fast' },
       { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: 'Fast & Capable' },
       { id: 'gemini-flash-latest', label: 'Gemini Flash Latest', badge: 'Auto-Updating' },
       { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: 'Deep Reasoning' },
@@ -143,15 +142,16 @@ export function getAiConfig(): {
     localStorage.getItem(`dx_model_${provider}`) || PROVIDERS[provider].models[0].id
 
   // Migrate any stored deprecated/invalid Gemini model id to a real API model.
+  // gemini-2.0-flash was retired by Google (returns "no longer available"), so
+  // it is NOT valid and anyone still on it is moved to the auto-updating alias.
   if (provider === 'gemini') {
     const validGemini = new Set([
-      'gemini-2.0-flash',
       'gemini-2.5-flash',
       'gemini-flash-latest',
       'gemini-2.5-pro',
     ])
     if (!validGemini.has(model)) {
-      model = 'gemini-2.0-flash'
+      model = 'gemini-flash-latest'
       try {
         localStorage.setItem('dx_model_gemini', model)
       } catch {
