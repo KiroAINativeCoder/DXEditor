@@ -140,13 +140,14 @@ export async function transformText(params: {
   } else {
     // mode === 'table'
     systemPrompt =
-      'You are an expert data analyst and editor. Your task is to analyze the SELECTED TEXT with multiple data points and summarize/tabularize it into a clean, professional HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\n' +
+      'You are an expert data analyst and editor. Your task is to evaluate the SELECTED TEXT and, if appropriate, convert its key data points into a clean, compact, perfectly fitted HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\n\n' +
       'CRITICAL RULES:\n' +
-      '1. ONLY tabularize the data, facts, entities, and metrics present in the SELECTED TEXT. Use the surrounding BEFORE CONTEXT and AFTER CONTEXT strictly for background understanding (e.g., resolving entity names, units, metrics, acronyms, or column headers).\n' +
-      '2. Automatically determine the most logical and meaningful column headers (e.g., Area / Item, Owner, Issue / Detail, Impact / Metric, Target Date / Action).\n' +
-      '3. Retain 100% of underlying details, figures, and facts from the selected text without omission.\n' +
-      '4. Eliminate all gibberish, filler words, narrative fluff, and conversational text.\n' +
-      '5. Output ONLY the raw HTML table starting with <table> and ending with </table>. Do NOT include markdown code fences (no ```html), introductory remarks, or commentary.'
+      '1. FEASIBILITY CHECK: First evaluate if the SELECTED TEXT genuinely contains multiple distinct data points, metrics, parameters, or structured facts suitable for a table. If the text is purely narrative prose, opinion, broad discussion, or an unstructured thought that cannot be meaningfully tabulated, DO NOT generate a table. Instead, return ONLY:\n' +
+      '⚠️ This content cannot be meaningfully tabularized as it does not contain distinct structured data points or metrics. Consider using Crispify or Bulletize instead.\n' +
+      '2. CONDENSE & COMPACT: Keep cell contents condensed into short phrases, numbers, and key terms. Never write long narrative paragraphs inside table cells so the table stays neat and compact without overflowing.\n' +
+      '3. COLUMN EFFICIENCY: Use between 2 to 4 concise column headers (e.g. "Item", "Owner", "Metric / Status", "Timeline") to guarantee the table fits standard document width without horizontal distortion.\n' +
+      '4. STRICT SCOPE: Tabularize ONLY data points from the SELECTED TEXT. Use the BEFORE CONTEXT and AFTER CONTEXT strictly for background interpretation (e.g. resolving pronouns, system names, or units).\n' +
+      '5. OUTPUT FORMAT: If generating a table, output ONLY the HTML table starting with <table> and ending with </table>. No markdown code fences, greetings, or explanations.'
   }
 
   const userContent =
@@ -320,62 +321,82 @@ function simulateTransformation(text: string, mode: AiMode, instruction?: string
     <tr>
       <th>Area</th>
       <th>Owner</th>
-      <th>Issue / Detail</th>
-      <th>Impact / Metric</th>
-      <th>Target Date</th>
+      <th>Issue</th>
+      <th>Impact</th>
+      <th>Target</th>
     </tr>
   </thead>
   <tbody>
     <tr>
       <td>Database</td>
       <td>Alex</td>
-      <td>Indexing latency spikes</td>
+      <td>Indexing latency</td>
       <td>Peak-hour degradation</td>
       <td>Sprint 24</td>
     </tr>
     <tr>
       <td>Mobile Push</td>
       <td>Sarah</td>
-      <td>Notification delivery failures</td>
-      <td>~4% failure rate on Android 14</td>
+      <td>Notification failures</td>
+      <td>4.2% on Android 14</td>
       <td>Sprint 24</td>
     </tr>
     <tr>
       <td>CI/CD</td>
       <td>Jordan</td>
-      <td>Automated regression benchmarks</td>
+      <td>Regression benchmarks</td>
       <td>Deployment guardrails</td>
-      <td>Before Friday</td>
+      <td>Friday 4 PM</td>
     </tr>
   </tbody>
 </table>`
-    } else if (text.toLowerCase().includes('customer support') || text.toLowerCase().includes('satisfaction') || text.toLowerCase().includes('basically')) {
+    } else if (text.toLowerCase().includes('marcus') || text.toLowerCase().includes('elena') || text.toLowerCase().includes('revenue') || text.toLowerCase().includes('arr')) {
       result = `<table>
   <thead>
     <tr>
-      <th>Initiative</th>
-      <th>Objective</th>
-      <th>Expected Impact</th>
-      <th>Rollout Phase</th>
+      <th>Region</th>
+      <th>Lead</th>
+      <th>Revenue</th>
+      <th>YoY Growth</th>
+      <th>Highlights</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Support Workflow Optimization</td>
-      <td>Streamline frontline query resolution</td>
-      <td>Higher satisfaction scores across channels</td>
-      <td>Coming weeks (Phased)</td>
+      <td>North America</td>
+      <td>Marcus</td>
+      <td>$1.85M ARR</td>
+      <td>+14%</td>
+      <td>22 enterprise logos</td>
+    </tr>
+    <tr>
+      <td>EMEA</td>
+      <td>Elena</td>
+      <td>€920K</td>
+      <td>-6% vs quota</td>
+      <td>Procurement delays</td>
+    </tr>
+    <tr>
+      <td>APAC</td>
+      <td>Priya</td>
+      <td>$640K</td>
+      <td>+38%</td>
+      <td>8 multi-year SaaS deals</td>
     </tr>
   </tbody>
 </table>`
     } else {
-      const parts = text.split(/[.;\n]/).map((p) => p.trim()).filter(Boolean)
-      const rows = parts.slice(0, 5).map((part, idx) => `    <tr><td>Item ${idx + 1}</td><td>${part}</td><td>Identified</td></tr>`).join('\n')
-      result = `<table>
+      const hasMetrics = /\d+%|\$\d+|\d+\s*users|\d+\s*ms|hours|sprint|quarter|workflow|alex|sarah|jordan/i.test(text)
+      if (!hasMetrics) {
+        result = '⚠️ This content cannot be meaningfully tabularized as it does not contain distinct structured data points or metrics. Consider using Crispify or Bulletize instead.'
+      } else {
+        const parts = text.split(/[.;\n]/).map((p) => p.trim()).filter(Boolean)
+        const rows = parts.slice(0, 4).map((part, idx) => `    <tr><td>Item ${idx + 1}</td><td>${part.slice(0, 45)}</td><td>Tracked</td></tr>`).join('\n')
+        result = `<table>
   <thead>
     <tr>
-      <th>Identifier</th>
-      <th>Data Point / Description</th>
+      <th>Item</th>
+      <th>Summary</th>
       <th>Status</th>
     </tr>
   </thead>
@@ -383,6 +404,7 @@ function simulateTransformation(text: string, mode: AiMode, instruction?: string
 ${rows}
   </tbody>
 </table>`
+      }
     }
   }
 

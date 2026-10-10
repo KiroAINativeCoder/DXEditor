@@ -280,6 +280,36 @@
       margin: 32px 0 14px;
       color: var(--text);
     }
+    .editor-body table {
+      border-collapse: collapse;
+      table-layout: fixed;
+      width: 100%;
+      max-width: 100%;
+      margin: 18px 0;
+      border-radius: 8px;
+      overflow: hidden;
+      box-sizing: border-box;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .editor-body th,
+    .editor-body td {
+      border: 1px solid var(--border);
+      padding: 9px 12px;
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .editor-body th {
+      background: var(--surface-subtle);
+      font-weight: 600;
+      color: var(--text);
+    }
+    .editor-body tr:nth-child(even) td {
+      background: rgba(241, 245, 249, 0.4);
+    }
 
     /* Modern Capsule Floating Bubble Menu */
     #bubbleMenu {
@@ -1234,7 +1264,7 @@
       } else if (currentMode === 'bullet') {
         systemPrompt = 'You are an expert editor. Convert the given text into crisp, clear, and well-structured bullet points while retaining all underlying information and key details without omission. If any statement is ambiguous, use the provided surrounding document context to resolve the ambiguity into precise meaning. Ensure logical progression and smooth flow between points. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY an HTML unordered list (<ul><li>...</li></ul>) without markdown code fences, greetings, or commentary.';
       } else {
-        systemPrompt = 'You are an expert data analyst and editor. Your task is to analyze the SELECTED TEXT with multiple data points and summarize/tabularize it into a clean, professional HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\nCRITICAL RULES:\n1. ONLY tabularize the data, facts, entities, and metrics present in the SELECTED TEXT. Use the surrounding BEFORE CONTEXT and AFTER CONTEXT strictly for background understanding (e.g., resolving entity names, units, metrics, acronyms, or column headers).\n2. Automatically determine the most logical and meaningful column headers (e.g., Area / Item, Owner, Issue / Detail, Impact / Metric, Target Date / Action).\n3. Retain 100% of underlying details, figures, and facts from the selected text without omission.\n4. Eliminate all gibberish, filler words, narrative fluff, and conversational text.\n5. Output ONLY the raw HTML table starting with <table> and ending with </table>. Do NOT include markdown code fences, introductory remarks, or commentary.';
+        systemPrompt = 'You are an expert data analyst and editor. Your task is to evaluate the SELECTED TEXT and, if appropriate, convert its key data points into a clean, compact, perfectly fitted HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\n\nCRITICAL RULES:\n1. FEASIBILITY CHECK: First evaluate if the SELECTED TEXT genuinely contains multiple distinct data points, metrics, parameters, or structured facts suitable for a table. If the text is purely narrative prose, opinion, broad discussion, or an unstructured thought that cannot be meaningfully tabulated, DO NOT generate a table. Instead, return ONLY:\n⚠️ This content cannot be meaningfully tabularized as it does not contain distinct structured data points or metrics. Consider using Crispify or Bulletize instead.\n2. CONDENSE & COMPACT: Keep cell contents condensed into short phrases, numbers, and key terms. Never write long narrative paragraphs inside table cells so the table stays neat and compact without overflowing.\n3. COLUMN EFFICIENCY: Use between 2 to 4 concise column headers (e.g. "Item", "Owner", "Metric / Status", "Timeline") to guarantee the table fits standard document width without horizontal distortion.\n4. STRICT SCOPE: Tabularize ONLY data points from the SELECTED TEXT. Use the BEFORE CONTEXT and AFTER CONTEXT strictly for background interpretation.\n5. OUTPUT FORMAT: If generating a table, output ONLY the HTML table starting with <table> and ending with </table>. No markdown code fences, greetings, or explanations.';
       }
 
       const userContent =
@@ -1406,59 +1436,64 @@
           outputHtml = `<table>
             <thead>
               <tr>
-                <th>Area / Component</th>
+                <th>Area</th>
                 <th>Owner</th>
-                <th>Issue / Proposal</th>
-                <th>Impact / Metric</th>
-                <th>Target Date</th>
+                <th>Issue</th>
+                <th>Impact</th>
+                <th>Target</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>Database</td>
                 <td>Alex</td>
-                <td>Indexing latency spikes</td>
-                <td>Peak-hour degradation</td>
+                <td>Indexing latency</td>
+                <td>Peak-hour spikes</td>
                 <td>Sprint 24</td>
               </tr>
               <tr>
-                <td>Mobile Notifications</td>
+                <td>Mobile</td>
                 <td>Sarah</td>
                 <td>Push notification failures</td>
-                <td>4% failure rate on Android 14</td>
+                <td>4% Android 14</td>
                 <td>Sprint 24</td>
               </tr>
               <tr>
-                <td>CI/CD Pipeline</td>
+                <td>CI/CD</td>
                 <td>Jordan</td>
-                <td>Automated regression benchmarks</td>
-                <td>Deployment quality guardrails</td>
-                <td>Before Friday</td>
+                <td>Regression benchmarks</td>
+                <td>Quality guardrails</td>
+                <td>Friday</td>
               </tr>
             </tbody>
           </table>`;
           outputText = 'Table: Sprint 24 Engineering Sync Data Points';
         } else {
-          outputHtml = `<table>
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Extracted Detail</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Data Point 1</td>
-                <td>${text.slice(0, 75)}...</td>
-                <td>Identified</td>
-              </tr>
-            </tbody>
-          </table>`;
-          outputText = 'Table representation of selected content';
+          const hasMetrics = /\d+%|\$\d+|\d+\s*users|\d+\s*ms|hours|sprint|quarter|alex|sarah|jordan/i.test(text);
+          if (!hasMetrics) {
+            outputHtml = '⚠️ This content cannot be meaningfully tabularized as it does not contain distinct structured data points or metrics. Consider using Crispify or Bulletize instead.';
+            outputText = outputHtml;
+          } else {
+            outputHtml = `<table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Summary</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Data Point 1</td>
+                  <td>${text.slice(0, 50)}...</td>
+                  <td>Identified</td>
+                </tr>
+              </tbody>
+            </table>`;
+            outputText = 'Table representation of selected content';
+          }
         }
       }
-
 
       if (customInstruction) {
         outputText += ` (Custom instruction applied: "${customInstruction}")`;
@@ -1470,7 +1505,19 @@
 
     function renderResult(html, textFallback) {
       resultBox.className = 'output-card';
-      resultBox.innerHTML = html;
+      if (html.startsWith('⚠️')) {
+        resultBox.innerHTML = `
+          <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; color: #92400e; font-size: 13px; line-height: 1.5;">
+            <div style="font-weight: 600; margin-bottom: 8px;">${html}</div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-action" style="background: #ffffff; border-color: #fcd34d; font-size: 12px;" onclick="switchMode('sentence')">⚡ Try Crisp Sentence</button>
+              <button class="btn-action" style="background: #ffffff; border-color: #fcd34d; font-size: 12px;" onclick="switchMode('bullet')">📌 Try Bullet Points</button>
+            </div>
+          </div>
+        `;
+      } else {
+        resultBox.innerHTML = html;
+      }
       currentGeneratedHtml = html;
       currentGeneratedText = textFallback || resultBox.innerText;
     }

@@ -157,6 +157,26 @@ export default function AiRewritePopover({
           </div>
         ) : error ? (
           <div className="ai-error-text">⚠️ {error}</div>
+        ) : result.startsWith('⚠️') ? (
+          <div className="ai-warning-box">
+            <div className="ai-warning-text">{result}</div>
+            <div className="ai-warning-actions">
+              <button
+                type="button"
+                className="ai-warning-btn"
+                onClick={() => handleModeSwitch('sentence')}
+              >
+                ⚡ Switch to Crisp Sentence
+              </button>
+              <button
+                type="button"
+                className="ai-warning-btn"
+                onClick={() => handleModeSwitch('bullet')}
+              >
+                📌 Switch to Bullet Points
+              </button>
+            </div>
+          </div>
         ) : result.includes('<ul') || result.includes('<table') ? (
           <div
             className="ai-rendered-html"
@@ -177,7 +197,7 @@ export default function AiRewritePopover({
             type="button"
             className="ai-pop-btn-secondary"
             onClick={() => onInsertBelow(result, mode)}
-            disabled={loading || !result}
+            disabled={loading || !result || result.startsWith('⚠️')}
             title="Insert generated version below"
           >
             ⬇ Insert Below
@@ -186,7 +206,7 @@ export default function AiRewritePopover({
             type="button"
             className="ai-pop-btn-primary"
             onClick={() => onReplace(result, mode)}
-            disabled={loading || !result}
+            disabled={loading || !result || result.startsWith('⚠️')}
             title="Replace selected text on behalf of user"
           >
             ✓ Replace Selection

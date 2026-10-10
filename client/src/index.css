@@ -544,3 +544,19 @@ body {
 [data-theme="dark"] .ai-rendered-html tr:nth-child(even) td {
   background: rgba(33, 38, 45, 0.4);
 }
+
+[data-theme="dark"] .ai-warning-box {
+  background: #27200d;
+  border-color: #854d0e;
+  color: #fef08a;
+}
+
+[data-theme="dark"] .ai-warning-btn {
+  background: #3b2c09;
+  border-color: #a16207;
+  color: #fef08a;
+}
+
+[data-theme="dark"] .ai-warning-btn:hover {
+  background: #4d380c;
+}
