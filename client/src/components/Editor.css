@@ -153,13 +153,14 @@
   position: absolute;
   z-index: 90;
   transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.94);
+  /* Light mode (default): white bar. Dark override below for night mode. */
+  background: #ffffff;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  color: #ffffff;
+  color: #1f2328;
   border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e6e6e3;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14), 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 4px;
   display: flex;
   align-items: center;
@@ -174,7 +175,7 @@
 
 .ai-bubble-btn {
   background: transparent;
-  color: #f8fafc;
+  color: #3a3f45;
   border: none;
   padding: 6px 12px;
   border-radius: 9999px;
@@ -188,8 +189,8 @@
   white-space: nowrap;
 }
 .ai-bubble-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: #f0efec;
+  color: #1f2328;
 }
 .ai-bubble-btn--glow {
   background: linear-gradient(135deg, #6366f1, #a855f7);
@@ -201,12 +202,24 @@
   background: linear-gradient(135deg, #4f46e5, #9333ea);
   box-shadow: 0 0 14px rgba(168, 85, 247, 0.55);
 }
+
+/* Night mode: dark bar */
+[data-theme="dark"] .ai-floating-bubble-bar {
+  background: rgba(15, 23, 42, 0.94);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+[data-theme="dark"] .ai-bubble-btn { color: #f8fafc; }
+[data-theme="dark"] .ai-bubble-btn:hover { background: rgba(255, 255, 255, 0.15); color: #ffffff; }
+
 .ai-bubble-divider {
   width: 1px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.2);
+  background: #e2e0db;
   margin: 0 2px;
 }
+[data-theme="dark"] .ai-bubble-divider { background: rgba(255, 255, 255, 0.2); }
 
 /* Brief flash when a thread's anchor is focused from the panel */
 .comment-mark--flash {
@@ -218,8 +231,8 @@
 .comment-popover {
   position: absolute;
   z-index: 30;
-  width: 330px;
-  max-width: 90vw;
+  width: 360px;
+  max-width: 92vw;
   background: #fff;
   border: 1px solid #e6e6e3;
   border-radius: 12px;
@@ -275,9 +288,10 @@
 
 /* Scrollable thread body */
 .cp-entries {
-  max-height: 320px;
+  min-height: 140px;
+  max-height: 420px;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 14px 16px;
 }
 .cp-entry { display: flex; gap: 10px; margin-bottom: 14px; }
 .cp-entry:last-child { margin-bottom: 0; }
@@ -320,8 +334,8 @@
   font-size: 14px;
   font-family: inherit;
   resize: none;
-  padding: 6px 4px;
-  max-height: 90px;
+  padding: 8px 4px;
+  max-height: 130px;
 }
 .cp-footer-input:focus { outline: none; }
 .cp-send-btn {

@@ -26,7 +26,7 @@ import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import AiSettingsModal from './AiSettingsModal'
 import AiRewritePopover from './AiRewritePopover'
-import { type AiMode, sanitizeTableHtml } from '../lib/ai'
+import { type AiMode, sanitizeTableHtml, getAiConfig } from '../lib/ai'
 import ReviewBar from './ReviewBar'
 import { statusMeta, DOC_STATUSES } from '../lib/rfc'
 import { docToMarkdown, markdownToDoc } from '../lib/markdown'
@@ -883,6 +883,12 @@ function CollabEditor({
   const openAiPopover = useCallback(
     (mode: AiMode = 'sentence') => {
       if (!editor || !bubble) return
+      // Require an AI key first — open settings if none is configured.
+      if (!getAiConfig().key) {
+        setBubble(null)
+        setAiSettingsOpen(true)
+        return
+      }
       const { from, to } = editor.state.selection
       if (from === to) return
       const selectedText = editor.state.doc.textBetween(from, to, ' ')
@@ -906,6 +912,11 @@ function CollabEditor({
 
   const triggerAiFromToolbar = useCallback(() => {
     if (!editor) return
+    // Require an AI key first — open settings if none is configured.
+    if (!getAiConfig().key) {
+      setAiSettingsOpen(true)
+      return
+    }
     const { from, to } = editor.state.selection
     const docSize = editor.state.doc.content.size
     if (from !== to) {
@@ -994,6 +1005,15 @@ function CollabEditor({
         >
           <button
             type="button"
+            className="ai-bubble-btn"
+            onClick={openComposer}
+            title="Add a comment"
+          >
+            💬 Comment
+          </button>
+          <div className="ai-bubble-divider" />
+          <button
+            type="button"
             className="ai-bubble-btn ai-bubble-btn--glow"
             onClick={() => openAiPopover('sentence')}
             title="Polish with AI"
@@ -1024,15 +1044,6 @@ function CollabEditor({
             title="Auto-tabularize data points into rows & columns"
           >
             📊 Tabularize
-          </button>
-          <div className="ai-bubble-divider" />
-          <button
-            type="button"
-            className="ai-bubble-btn"
-            onClick={openComposer}
-            title="Add a comment"
-          >
-            💬 Comment
           </button>
         </div>
       )}
