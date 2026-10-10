@@ -702,6 +702,8 @@ function CollabEditor({
     left: number
     mode: AiMode
     selectedText: string
+    contextBefore?: string
+    contextAfter?: string
     from: number
     to: number
   } | null>(null)
@@ -713,11 +715,16 @@ function CollabEditor({
       const { from, to } = editor.state.selection
       if (from === to) return
       const selectedText = editor.state.doc.textBetween(from, to, ' ')
+      const docSize = editor.state.doc.content.size
+      const contextBefore = editor.state.doc.textBetween(Math.max(0, from - 1000), from, ' ')
+      const contextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + 1000), ' ')
       setAiPopover({
         top: bubble.top + 34,
         left: bubble.left,
         mode,
         selectedText,
+        contextBefore,
+        contextAfter,
         from,
         to,
       })
@@ -729,15 +736,20 @@ function CollabEditor({
   const triggerAiFromToolbar = useCallback(() => {
     if (!editor) return
     const { from, to } = editor.state.selection
+    const docSize = editor.state.doc.content.size
     if (from !== to) {
       const start = editor.view.coordsAtPos(from)
       const end = editor.view.coordsAtPos(to)
       const selectedText = editor.state.doc.textBetween(from, to, ' ')
+      const contextBefore = editor.state.doc.textBetween(Math.max(0, from - 1000), from, ' ')
+      const contextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + 1000), ' ')
       setAiPopover({
         top: start.top + 30,
         left: (start.left + end.left) / 2,
         mode: 'sentence',
         selectedText,
+        contextBefore,
+        contextAfter,
         from,
         to,
       })
@@ -748,11 +760,15 @@ function CollabEditor({
         const startPos = $from.start()
         const endPos = $from.end()
         const coords = editor.view.coordsAtPos(startPos)
+        const contextBefore = editor.state.doc.textBetween(Math.max(0, startPos - 1000), startPos, ' ')
+        const contextAfter = editor.state.doc.textBetween(endPos, Math.min(docSize, endPos + 1000), ' ')
         setAiPopover({
           top: coords.top + 30,
           left: coords.left + 140,
           mode: 'sentence',
           selectedText: node.textContent,
+          contextBefore,
+          contextAfter,
           from: startPos,
           to: endPos,
         })
@@ -824,6 +840,14 @@ function CollabEditor({
           >
             📌 Bulletize
           </button>
+          <button
+            type="button"
+            className="ai-bubble-btn"
+            onClick={() => openAiPopover('table')}
+            title="Auto-tabularize data points into rows & columns"
+          >
+            📊 Tabularize
+          </button>
           <div className="ai-bubble-divider" />
           <button
             type="button"
@@ -842,6 +866,8 @@ function CollabEditor({
           left={aiPopover.left}
           initialMode={aiPopover.mode}
           selectedText={aiPopover.selectedText}
+          contextBefore={aiPopover.contextBefore}
+          contextAfter={aiPopover.contextAfter}
           onReplace={handleAiReplace}
           onInsertBelow={handleAiInsertBelow}
           onClose={() => setAiPopover(null)}

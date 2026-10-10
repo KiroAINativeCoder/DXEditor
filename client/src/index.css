@@ -530,3 +530,17 @@ body {
 [data-theme="dark"] .ai-pop-btn-secondary:hover:not(:disabled) {
   background: #30363d;
 }
+
+[data-theme="dark"] .ai-rendered-html th,
+[data-theme="dark"] .ai-rendered-html td {
+  border-color: #30363d;
+}
+
+[data-theme="dark"] .ai-rendered-html th {
+  background: #21262d;
+  color: #f0f6fc;
+}
+
+[data-theme="dark"] .ai-rendered-html tr:nth-child(even) td {
+  background: rgba(33, 38, 45, 0.4);
+}

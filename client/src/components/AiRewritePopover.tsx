@@ -12,6 +12,8 @@ type Props = {
   left: number
   initialMode: AiMode
   selectedText: string
+  contextBefore?: string
+  contextAfter?: string
   onReplace: (newContent: string, mode: AiMode) => void
   onInsertBelow: (newContent: string, mode: AiMode) => void
   onClose: () => void
@@ -23,6 +25,8 @@ export default function AiRewritePopover({
   left,
   initialMode,
   selectedText,
+  contextBefore,
+  contextAfter,
   onReplace,
   onInsertBelow,
   onClose,
@@ -45,6 +49,8 @@ export default function AiRewritePopover({
       const out = await transformText({
         text: selectedText,
         mode: targetMode,
+        contextBefore,
+        contextAfter,
         customInstruction: promptText || undefined,
       })
       setResult(out)
@@ -78,7 +84,11 @@ export default function AiRewritePopover({
     >
       <div className="ai-pop-header">
         <div className="ai-pop-badge">
-          ✨ {mode === 'sentence' ? 'Crispify (Sentence)' : 'Bulletize (Points)'}
+          {mode === 'sentence'
+            ? '✨ Crispify (Sentence)'
+            : mode === 'bullet'
+            ? '📌 Bulletize (Points)'
+            : '📊 Tabularize (Data Table)'}
         </div>
         <div className="ai-pop-model-tag" onClick={onOpenSettings} title="Click to change model/key">
           <span>{providerMeta.name} · {modelShort}</span>
@@ -102,6 +112,13 @@ export default function AiRewritePopover({
         >
           📌 Bullet Points
         </button>
+        <button
+          type="button"
+          className={`ai-switch-btn ${mode === 'table' ? 'active' : ''}`}
+          onClick={() => handleModeSwitch('table')}
+        >
+          📊 Tabularize
+        </button>
       </div>
 
       {/* Quote Preview */}
@@ -114,7 +131,7 @@ export default function AiRewritePopover({
         <input
           type="text"
           className="ai-prompt-input"
-          placeholder="Optional instruction (e.g. 'under 15 words', 'more urgent')…"
+          placeholder="Optional instruction (e.g. 'under 15 words', 'add Owner column')…"
           value={customPrompt}
           onChange={(e) => setCustomPrompt(e.target.value)}
           onKeyDown={(e) => {
@@ -140,7 +157,7 @@ export default function AiRewritePopover({
           </div>
         ) : error ? (
           <div className="ai-error-text">⚠️ {error}</div>
-        ) : mode === 'bullet' && result.includes('<ul') ? (
+        ) : result.includes('<ul') || result.includes('<table') ? (
           <div
             className="ai-rendered-html"
             dangerouslySetInnerHTML={{ __html: result }}
@@ -161,7 +178,7 @@ export default function AiRewritePopover({
             className="ai-pop-btn-secondary"
             onClick={() => onInsertBelow(result, mode)}
             disabled={loading || !result}
-            title="Insert crispified version below"
+            title="Insert generated version below"
           >
             ⬇ Insert Below
           </button>

@@ -1,5 +1,5 @@
 export type AiProvider = 'openrouter' | 'gemini' | 'deepseek' | 'openai'
-export type AiMode = 'sentence' | 'bullet'
+export type AiMode = 'sentence' | 'bullet' | 'table'
 
 export type ModelOption = {
   id: string
@@ -43,6 +43,7 @@ export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
     icon: '✨',
     models: [
       { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: '⚡ Ultra Fast (Latest)' },
+      { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite', badge: '⚡ Resilient & Fast' },
       { id: 'gemini-flash-latest', label: 'Gemini Flash Latest', badge: '⚡ Auto-Updating' },
       { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: '🧠 Deep Reasoning' },
     ],
@@ -122,34 +123,64 @@ export function saveAiConfig(provider: AiProvider, key: string, model: string) {
 export async function transformText(params: {
   text: string
   mode: AiMode
+  contextBefore?: string
+  contextAfter?: string
   customInstruction?: string
 }): Promise<string> {
-  const { text, mode, customInstruction } = params
+  const { text, mode, contextBefore, contextAfter, customInstruction } = params
   const { provider, key, model, isLive } = getAiConfig()
 
-  const systemPrompt =
-    mode === 'sentence'
-      ? 'You are an expert editor. Rewrite the given text into crisp, clear, and impactful sentence(s) while retaining all underlying information and key details without omission. If any statement is ambiguous, resolve the ambiguity into precise meaning. Ensure seamless narrative flow and logical coherence where each statement connects naturally to the next. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY the polished rewritten text without markdown fences, greetings, or commentary.'
-      : 'You are an expert editor. Convert the given text into crisp, clear, and well-structured bullet points while retaining all underlying information and key details without omission. If any statement is ambiguous, resolve the ambiguity into precise meaning. Ensure logical progression and smooth flow between points. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY an HTML unordered list (<ul><li>...</li></ul>) without markdown code fences, greetings, or commentary.'
+  let systemPrompt = ''
+  if (mode === 'sentence') {
+    systemPrompt =
+      'You are an expert editor. Rewrite the given text into crisp, clear, and impactful sentence(s) while retaining all underlying information and key details without omission. If any statement is ambiguous, use the provided surrounding document context to resolve the ambiguity into precise meaning. Ensure seamless narrative flow and logical coherence where each statement connects naturally to the next. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY the polished rewritten text without markdown fences, greetings, or commentary.'
+  } else if (mode === 'bullet') {
+    systemPrompt =
+      'You are an expert editor. Convert the given text into crisp, clear, and well-structured bullet points while retaining all underlying information and key details without omission. If any statement is ambiguous, use the provided surrounding document context to resolve the ambiguity into precise meaning. Ensure logical progression and smooth flow between points. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY an HTML unordered list (<ul><li>...</li></ul>) without markdown code fences, greetings, or commentary.'
+  } else {
+    // mode === 'table'
+    systemPrompt =
+      'You are an expert data analyst and editor. Your task is to analyze the SELECTED TEXT with multiple data points and summarize/tabularize it into a clean, professional HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\n' +
+      'CRITICAL RULES:\n' +
+      '1. ONLY tabularize the data, facts, entities, and metrics present in the SELECTED TEXT. Use the surrounding BEFORE CONTEXT and AFTER CONTEXT strictly for background understanding (e.g., resolving entity names, units, metrics, acronyms, or column headers).\n' +
+      '2. Automatically determine the most logical and meaningful column headers (e.g., Area / Item, Owner, Issue / Detail, Impact / Metric, Target Date / Action).\n' +
+      '3. Retain 100% of underlying details, figures, and facts from the selected text without omission.\n' +
+      '4. Eliminate all gibberish, filler words, narrative fluff, and conversational text.\n' +
+      '5. Output ONLY the raw HTML table starting with <table> and ending with </table>. Do NOT include markdown code fences (no ```html), introductory remarks, or commentary.'
+  }
 
-  const userContent = customInstruction
-    ? `Text: "${text}"\nAdditional Instruction: ${customInstruction}`
-    : text
+  const userContent =
+    `[DOCUMENT CONTEXT BEFORE (UP TO 1000 CHARACTERS)]\n` +
+    `${contextBefore?.trim() ? contextBefore.trim() : '(None)'}\n\n` +
+    `[SELECTED TEXT TO TRANSFORM]\n` +
+    `${text.trim()}\n\n` +
+    `[DOCUMENT CONTEXT AFTER (UP TO 1000 CHARACTERS)]\n` +
+    `${contextAfter?.trim() ? contextAfter.trim() : '(None)'}` +
+    (customInstruction ? `\n\n[USER INSTRUCTION]\n${customInstruction}` : '')
 
   if (isLive) {
     if (provider === 'gemini') {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ parts: [{ text: userContent }] }],
-            generationConfig: { temperature: 0.3 },
-          }),
-        },
-      )
+      const callGemini = async (targetModel: string) => {
+        return fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${key}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemPrompt }] },
+              contents: [{ parts: [{ text: userContent }] }],
+              generationConfig: { temperature: mode === 'table' ? 0.2 : 0.3 },
+            }),
+          },
+        )
+      }
+
+      let res = await callGemini(model)
+      // Auto-fallback to resilient model if 503 high demand spike occurs
+      if (res.status === 503 && model !== 'gemini-3.5-flash-lite') {
+        res = await callGemini('gemini-3.5-flash-lite')
+      }
+
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error?.message || 'Gemini API failed')
@@ -171,7 +202,7 @@ export async function transformText(params: {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent },
           ],
-          temperature: 0.3,
+          temperature: mode === 'table' ? 0.2 : 0.3,
         }),
       })
       if (!res.ok) {
@@ -195,7 +226,7 @@ export async function transformText(params: {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent },
           ],
-          temperature: 0.3,
+          temperature: mode === 'table' ? 0.2 : 0.3,
         }),
       })
       if (!res.ok) {
@@ -222,7 +253,7 @@ export async function transformText(params: {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent },
           ],
-          temperature: 0.3,
+          temperature: mode === 'table' ? 0.2 : 0.3,
         }),
       })
       if (!res.ok) {
@@ -256,7 +287,7 @@ function simulateTransformation(text: string, mode: AiMode, instruction?: string
         .trim()
       result = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
     }
-  } else {
+  } else if (mode === 'bullet') {
     // Bullet mode
     if (text.toLowerCase().includes('multiple discussions') || text.toLowerCase().includes('basically')) {
       result = `<ul>
@@ -280,6 +311,78 @@ function simulateTransformation(text: string, mode: AiMode, instruction?: string
   <li><strong>Action Item:</strong> Review and align with stakeholders.</li>
 </ul>`
       }
+    }
+  } else {
+    // Table mode simulation
+    if (text.toLowerCase().includes('database') || text.toLowerCase().includes('indexing') || text.toLowerCase().includes('alex')) {
+      result = `<table>
+  <thead>
+    <tr>
+      <th>Area</th>
+      <th>Owner</th>
+      <th>Issue / Detail</th>
+      <th>Impact / Metric</th>
+      <th>Target Date</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Database</td>
+      <td>Alex</td>
+      <td>Indexing latency spikes</td>
+      <td>Peak-hour degradation</td>
+      <td>Sprint 24</td>
+    </tr>
+    <tr>
+      <td>Mobile Push</td>
+      <td>Sarah</td>
+      <td>Notification delivery failures</td>
+      <td>~4% failure rate on Android 14</td>
+      <td>Sprint 24</td>
+    </tr>
+    <tr>
+      <td>CI/CD</td>
+      <td>Jordan</td>
+      <td>Automated regression benchmarks</td>
+      <td>Deployment guardrails</td>
+      <td>Before Friday</td>
+    </tr>
+  </tbody>
+</table>`
+    } else if (text.toLowerCase().includes('customer support') || text.toLowerCase().includes('satisfaction') || text.toLowerCase().includes('basically')) {
+      result = `<table>
+  <thead>
+    <tr>
+      <th>Initiative</th>
+      <th>Objective</th>
+      <th>Expected Impact</th>
+      <th>Rollout Phase</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Support Workflow Optimization</td>
+      <td>Streamline frontline query resolution</td>
+      <td>Higher satisfaction scores across channels</td>
+      <td>Coming weeks (Phased)</td>
+    </tr>
+  </tbody>
+</table>`
+    } else {
+      const parts = text.split(/[.;\n]/).map((p) => p.trim()).filter(Boolean)
+      const rows = parts.slice(0, 5).map((part, idx) => `    <tr><td>Item ${idx + 1}</td><td>${part}</td><td>Identified</td></tr>`).join('\n')
+      result = `<table>
+  <thead>
+    <tr>
+      <th>Identifier</th>
+      <th>Data Point / Description</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+${rows}
+  </tbody>
+</table>`
     }
   }
 

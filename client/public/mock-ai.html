@@ -474,6 +474,29 @@
       color: #0f172a;
       position: relative;
     }
+    .output-card table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 4px 0;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .output-card th,
+    .output-card td {
+      border: 1px solid var(--border);
+      padding: 7px 11px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .output-card th {
+      background: var(--surface-subtle);
+      font-weight: 600;
+      color: var(--text);
+    }
+    .output-card tr:nth-child(even) td {
+      background: rgba(241, 245, 249, 0.5);
+    }
     .output-card.loading {
       color: var(--text-muted);
       display: flex;
@@ -801,6 +824,9 @@
       <button class="bubble-btn" id="bubbleBulletBtn" title="Convert into structured bullet points">
         📌 Bulletize (Points)
       </button>
+      <button class="bubble-btn" id="bubbleTableBtn" title="Auto-tabularize data points into rows & columns">
+        📊 Tabularize (Table)
+      </button>
     </div>
   </div>
 
@@ -820,6 +846,9 @@
       </button>
       <button class="pill-btn" id="tabBullet" onclick="switchMode('bullet')">
         📌 Bullet Points
+      </button>
+      <button class="pill-btn" id="tabTable" onclick="switchMode('table')">
+        📊 Tabularize
       </button>
     </div>
 
@@ -1131,6 +1160,10 @@
       e.stopPropagation();
       openPopover('bullet');
     });
+    document.getElementById('bubbleTableBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPopover('table');
+    });
 
     function openPopover(mode) {
       currentMode = mode;
@@ -1160,7 +1193,12 @@
     function updateTabStyles() {
       document.getElementById('tabSentence').className = `pill-btn ${currentMode === 'sentence' ? 'active' : ''}`;
       document.getElementById('tabBullet').className = `pill-btn ${currentMode === 'bullet' ? 'active' : ''}`;
-      popoverActionName.textContent = currentMode === 'sentence' ? 'Crispify (Sentence)' : 'Bulletize (Points)';
+      document.getElementById('tabTable').className = `pill-btn ${currentMode === 'table' ? 'active' : ''}`;
+      popoverActionName.textContent = currentMode === 'sentence'
+        ? 'Crispify (Sentence)'
+        : currentMode === 'bullet'
+        ? 'Bulletize (Points)'
+        : 'Tabularize (Data Table)';
     }
 
     function regenerateWithCustomPrompt() {
@@ -1177,31 +1215,58 @@
 
       const provider = localStorage.getItem('dx_ai_provider') || 'openrouter';
       const apiKey = (localStorage.getItem(`dx_key_${provider}`) || '').trim();
-      const model = localStorage.getItem(`dx_model_${provider}`) || selectedModel;
+      let model = localStorage.getItem(`dx_model_${provider}`) || selectedModel;
       const customInstruction = document.getElementById('customPromptInput').value.trim();
 
-      const systemPrompt = currentMode === 'sentence'
-        ? 'You are an expert editor. Rewrite the given text into crisp, clear, and impactful sentence(s) while retaining all underlying information and key details without omission. If any statement is ambiguous, resolve the ambiguity into precise meaning. Ensure seamless narrative flow and logical coherence where each statement connects naturally to the next. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY the polished rewritten text without markdown fences, greetings, or commentary.'
-        : 'You are an expert editor. Convert the given text into crisp, clear, and well-structured bullet points while retaining all underlying information and key details without omission. If any statement is ambiguous, resolve the ambiguity into precise meaning. Ensure logical progression and smooth flow between points. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY an HTML unordered list (<ul><li>...</li></ul>) without markdown code fences, greetings, or commentary.';
+      // Extract up to 1000 characters before & after the selected text in document
+      const fullDocText = editor.innerText || '';
+      const selIdx = fullDocText.indexOf(currentSelection.text);
+      let contextBefore = '';
+      let contextAfter = '';
+      if (selIdx !== -1) {
+        contextBefore = fullDocText.slice(Math.max(0, selIdx - 1000), selIdx).trim();
+        contextAfter = fullDocText.slice(selIdx + currentSelection.text.length, selIdx + currentSelection.text.length + 1000).trim();
+      }
 
-      const userContent = customInstruction
-        ? `Text: "${currentSelection.text}"\nAdditional Instruction: ${customInstruction}`
-        : currentSelection.text;
+      let systemPrompt = '';
+      if (currentMode === 'sentence') {
+        systemPrompt = 'You are an expert editor. Rewrite the given text into crisp, clear, and impactful sentence(s) while retaining all underlying information and key details without omission. If any statement is ambiguous, use the provided surrounding document context to resolve the ambiguity into precise meaning. Ensure seamless narrative flow and logical coherence where each statement connects naturally to the next. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY the polished rewritten text without markdown fences, greetings, or commentary.';
+      } else if (currentMode === 'bullet') {
+        systemPrompt = 'You are an expert editor. Convert the given text into crisp, clear, and well-structured bullet points while retaining all underlying information and key details without omission. If any statement is ambiguous, use the provided surrounding document context to resolve the ambiguity into precise meaning. Ensure logical progression and smooth flow between points. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY an HTML unordered list (<ul><li>...</li></ul>) without markdown code fences, greetings, or commentary.';
+      } else {
+        systemPrompt = 'You are an expert data analyst and editor. Your task is to analyze the SELECTED TEXT with multiple data points and summarize/tabularize it into a clean, professional HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\nCRITICAL RULES:\n1. ONLY tabularize the data, facts, entities, and metrics present in the SELECTED TEXT. Use the surrounding BEFORE CONTEXT and AFTER CONTEXT strictly for background understanding (e.g., resolving entity names, units, metrics, acronyms, or column headers).\n2. Automatically determine the most logical and meaningful column headers (e.g., Area / Item, Owner, Issue / Detail, Impact / Metric, Target Date / Action).\n3. Retain 100% of underlying details, figures, and facts from the selected text without omission.\n4. Eliminate all gibberish, filler words, narrative fluff, and conversational text.\n5. Output ONLY the raw HTML table starting with <table> and ending with </table>. Do NOT include markdown code fences, introductory remarks, or commentary.';
+      }
+
+      const userContent =
+        `[DOCUMENT CONTEXT BEFORE (UP TO 1000 CHARACTERS)]\n` +
+        `${contextBefore || '(None)'}\n\n` +
+        `[SELECTED TEXT TO TRANSFORM]\n` +
+        `${currentSelection.text.trim()}\n\n` +
+        `[DOCUMENT CONTEXT AFTER (UP TO 1000 CHARACTERS)]\n` +
+        `${contextAfter || '(None)'}` +
+        (customInstruction ? `\n\n[USER INSTRUCTION]\n${customInstruction}` : '');
 
       if (apiKey && apiKey.length > 5) {
         try {
           let output = '';
 
           if (provider === 'gemini') {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                system_instruction: { parts: [{ text: systemPrompt }] },
-                contents: [{ parts: [{ text: userContent }] }],
-                generationConfig: { temperature: 0.3 }
-              })
-            });
+            const callGemini = async (m) => {
+              return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  system_instruction: { parts: [{ text: systemPrompt }] },
+                  contents: [{ parts: [{ text: userContent }] }],
+                  generationConfig: { temperature: currentMode === 'table' ? 0.2 : 0.3 }
+                })
+              });
+            };
+
+            let res = await callGemini(model);
+            if (res.status === 503 && model !== 'gemini-3.5-flash-lite') {
+              res = await callGemini('gemini-3.5-flash-lite');
+            }
             if (!res.ok) {
               const errJson = await res.json();
               throw new Error(errJson.error?.message || 'Google Gemini API error');
@@ -1222,7 +1287,7 @@
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: userContent }
                 ],
-                temperature: 0.3
+                temperature: currentMode === 'table' ? 0.2 : 0.3
               })
             });
             if (!res.ok) {
@@ -1245,7 +1310,7 @@
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: userContent }
                 ],
-                temperature: 0.3
+                temperature: currentMode === 'table' ? 0.2 : 0.3
               })
             });
             if (!res.ok) {
@@ -1271,7 +1336,7 @@
                   { role: 'system', content: systemPrompt },
                   { role: 'user', content: userContent }
                 ],
-                temperature: 0.3
+                temperature: currentMode === 'table' ? 0.2 : 0.3
               })
             });
             if (!res.ok) {
@@ -1280,6 +1345,10 @@
             }
             const data = await res.json();
             output = data.choices?.[0]?.message?.content || '';
+          }
+
+          if (output.startsWith('```')) {
+            output = output.replace(/^```(?:html)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
           }
 
           renderResult(output);
@@ -1309,7 +1378,7 @@
           outputText = `Streamlined and clarified: "${text.replace(/Basically, |at the end of the day |fairly |maybe |potentially /gi, '').trim()}"`;
         }
         outputHtml = outputText;
-      } else {
+      } else if (currentMode === 'bullet') {
         if (text.includes('Basically, we were having multiple discussions')) {
           outputHtml = `<ul>
             <li><strong>Objective:</strong> Optimize the customer support workflow this quarter.</li>
@@ -1331,7 +1400,65 @@
           </ul>`;
           outputText = '• Core Point: Key initiative extracted from statement.\n• Implementation: Immediate actionable next steps defined clearly.';
         }
+      } else {
+        // Table Mode
+        if (text.includes('database indexing') || text.includes('Alex') || text.includes('Sprint 24')) {
+          outputHtml = `<table>
+            <thead>
+              <tr>
+                <th>Area / Component</th>
+                <th>Owner</th>
+                <th>Issue / Proposal</th>
+                <th>Impact / Metric</th>
+                <th>Target Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Database</td>
+                <td>Alex</td>
+                <td>Indexing latency spikes</td>
+                <td>Peak-hour degradation</td>
+                <td>Sprint 24</td>
+              </tr>
+              <tr>
+                <td>Mobile Notifications</td>
+                <td>Sarah</td>
+                <td>Push notification failures</td>
+                <td>4% failure rate on Android 14</td>
+                <td>Sprint 24</td>
+              </tr>
+              <tr>
+                <td>CI/CD Pipeline</td>
+                <td>Jordan</td>
+                <td>Automated regression benchmarks</td>
+                <td>Deployment quality guardrails</td>
+                <td>Before Friday</td>
+              </tr>
+            </tbody>
+          </table>`;
+          outputText = 'Table: Sprint 24 Engineering Sync Data Points';
+        } else {
+          outputHtml = `<table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Extracted Detail</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Data Point 1</td>
+                <td>${text.slice(0, 75)}...</td>
+                <td>Identified</td>
+              </tr>
+            </tbody>
+          </table>`;
+          outputText = 'Table representation of selected content';
+        }
       }
+
 
       if (customInstruction) {
         outputText += ` (Custom instruction applied: "${customInstruction}")`;

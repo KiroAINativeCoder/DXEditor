@@ -1,7 +1,7 @@
 .ai-popover-card {
   position: absolute;
   z-index: 100;
-  width: 480px;
+  width: 530px;
   max-width: calc(100vw - 32px);
   background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(16px);
@@ -197,6 +197,31 @@
 }
 .ai-rendered-html li {
   margin-bottom: 4px;
+}
+
+.ai-rendered-html table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin: 4px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.ai-rendered-html th,
+.ai-rendered-html td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.ai-rendered-html th {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #1e293b;
+}
+.ai-rendered-html tr:nth-child(even) td {
+  background: rgba(241, 245, 249, 0.4);
 }
 
 .ai-pop-actions {
