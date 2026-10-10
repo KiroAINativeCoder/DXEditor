@@ -6,6 +6,7 @@ import {
   transformText,
 } from '../lib/ai'
 import './AiRewritePopover.css'
+import GeminiSparkleIcon from './GeminiSparkleIcon'
 
 type Props = {
   top: number
@@ -130,6 +131,7 @@ export default function AiRewritePopover({
     >
       <div className="ai-pop-header">
         <div className="ai-pop-badge">
+          <GeminiSparkleIcon size={13} />
           {mode === 'sentence'
             ? 'Crispify (Sentence)'
             : mode === 'bullet'
@@ -149,6 +151,7 @@ export default function AiRewritePopover({
           className={`ai-switch-btn ${mode === 'sentence' ? 'active' : ''}`}
           onClick={() => handleModeSwitch('sentence')}
         >
+          <GeminiSparkleIcon size={12} />
           Crisp Sentence
         </button>
         <button
@@ -156,6 +159,7 @@ export default function AiRewritePopover({
           className={`ai-switch-btn ${mode === 'bullet' ? 'active' : ''}`}
           onClick={() => handleModeSwitch('bullet')}
         >
+          <GeminiSparkleIcon size={12} />
           Bullet Points
         </button>
         <button
@@ -163,6 +167,7 @@ export default function AiRewritePopover({
           className={`ai-switch-btn ${mode === 'table' ? 'active' : ''}`}
           onClick={() => handleModeSwitch('table')}
         >
+          <GeminiSparkleIcon size={12} />
           Tabularize
         </button>
       </div>

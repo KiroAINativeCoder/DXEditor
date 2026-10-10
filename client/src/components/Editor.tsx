@@ -27,6 +27,7 @@ import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import AiSettingsModal from './AiSettingsModal'
 import AiRewritePopover from './AiRewritePopover'
+import GeminiSparkleIcon from './GeminiSparkleIcon'
 import { type AiMode, sanitizeTableHtml, getAiConfig } from '../lib/ai'
 import ReviewBar from './ReviewBar'
 import { statusMeta, DOC_STATUSES } from '../lib/rfc'
@@ -1135,32 +1136,48 @@ function CollabEditor({
             onClick={openComposer}
             title="Add a comment"
           >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
             Comment
           </button>
           <div className="ai-bubble-divider" />
           <button
             type="button"
-            className="ai-bubble-btn"
+            className="ai-bubble-btn ai-bubble-btn--ai"
             onClick={() => openAiPopover('sentence')}
-            title="Crispify into concise sentence(s)"
+            title="Crispify into concise sentence(s) with AI"
           >
-            Crispify
+            <GeminiSparkleIcon size={14} />
+            <span>Crispify</span>
           </button>
           <button
             type="button"
-            className="ai-bubble-btn"
+            className="ai-bubble-btn ai-bubble-btn--ai"
             onClick={() => openAiPopover('bullet')}
-            title="Convert into bullet points"
+            title="Convert into bullet points with AI"
           >
-            Bulletize
+            <GeminiSparkleIcon size={14} />
+            <span>Bulletize</span>
           </button>
           <button
             type="button"
-            className="ai-bubble-btn"
+            className="ai-bubble-btn ai-bubble-btn--ai"
             onClick={() => openAiPopover('table')}
-            title="Auto-tabularize data points into rows & columns"
+            title="Auto-tabularize data points into rows & columns with AI"
           >
-            Tabularize
+            <GeminiSparkleIcon size={14} />
+            <span>Tabularize</span>
           </button>
         </div>
       )}
