@@ -20,6 +20,7 @@ import VersionPanel from './VersionPanel'
 import Menu from './Menu'
 import { CommentMark } from './CommentMark'
 import { MermaidNode } from './Mermaid'
+import { CodeRef } from './CodeRef'
 import { docs, comments, images, type Role, type Thread as ThreadT, type DocStatus } from '../lib/api'
 import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
@@ -404,6 +405,7 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
                 { label: 'Divider', disabled: !canEdit, onClick: () => ed?.chain().focus().setHorizontalRule().run() },
                 { label: 'Image…', disabled: !canEdit, onClick: () => imageInputRef.current?.click() },
                 { label: 'Mermaid diagram', disabled: !canEdit, onClick: () => ed?.chain().focus().insertMermaid().run() },
+                { label: 'Code reference (GitHub)…', disabled: !canEdit, onClick: () => ed?.chain().focus().insertCodeRef().run() },
               ]}
             />
             <Menu
@@ -622,6 +624,7 @@ function CollabEditor({
       TableCell,
       CommentMark,
       MermaidNode,
+      CodeRef,
       Image.configure({ inline: false, allowBase64: false }),
       Collaboration.configure({ document: ydoc }),
       CollaborationCaret.configure({

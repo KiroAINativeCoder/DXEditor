@@ -55,6 +55,21 @@ function block(n: PMNode): string {
     case 'mermaid':
       // The flagship round-trip: fenced ```mermaid carrying the diagram source.
       return '```mermaid\n' + ((n.attrs?.source as string) || '').trim() + '\n```'
+    case 'codeRef': {
+      // Degrade to a permalink line + the pinned snippet as a fenced block, so
+      // it reads correctly in a plain Git repo even without the custom node.
+      const a = n.attrs ?? {}
+      const sha = (a.resolvedSha as string) || (a.ref as string) || ''
+      const lineHash =
+        a.startLine == null
+          ? ''
+          : a.endLine && a.endLine !== a.startLine
+            ? `#L${a.startLine}-L${a.endLine}`
+            : `#L${a.startLine}`
+      const link = `https://github.com/${a.owner}/${a.repo}/blob/${sha}/${a.path}${lineHash}`
+      const ext = String(a.path || '').split('.').pop() || ''
+      return `[${a.path}${lineHash}](${link})\n\n\`\`\`${ext}\n${(a.snippet as string) || ''}\n\`\`\``
+    }
     case 'image':
       return `![${(n.attrs?.alt as string) || ''}](${(n.attrs?.src as string) || ''})`
     case 'horizontalRule':
