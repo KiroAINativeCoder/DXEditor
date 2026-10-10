@@ -32,7 +32,8 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
   }
 
   const handleSave = () => {
-    saveAiConfig(provider, key, model)
+    if (!key.trim()) return // key is mandatory
+    saveAiConfig(provider, key.trim(), model)
     onSaved?.()
     onClose()
   }
@@ -44,7 +45,6 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
       <div className="ai-modal-window" onClick={(e) => e.stopPropagation()}>
         <div className="ai-modal-header">
           <div className="ai-modal-title">
-            <span className="ai-modal-sparkle">✨</span>
             AI Provider & Model Settings
           </div>
           <button className="ai-modal-close" onClick={onClose} aria-label="Close">
@@ -67,20 +67,8 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
                   onClick={() => handleProviderSelect(pKey)}
                 >
                   <div className="ai-card-top">
-                    <span className="ai-card-name">
-                      <span className="ai-card-icon">{p.icon}</span>
-                      {p.name}
-                    </span>
-                    <span
-                      className="ai-card-tag"
-                      style={{
-                        backgroundColor: `${p.tagColor}15`,
-                        color: p.tagColor,
-                        border: `1px solid ${p.tagColor}30`,
-                      }}
-                    >
-                      {p.tag}
-                    </span>
+                    <span className="ai-card-name">{p.name}</span>
+                    <span className="ai-card-tag">{p.tag}</span>
                   </div>
                   <div className="ai-card-desc">{p.hint}</div>
                 </div>
@@ -101,15 +89,14 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
                   onClick={() => setModel(m.id)}
                 >
                   <span className="ai-chip-name">{m.label}</span>
-                  <span className="ai-chip-badge">{m.badge}</span>
                 </button>
               )
             })}
           </div>
 
-          {/* API Key */}
+          {/* API Key — required */}
           <div className="ai-field-label" style={{ marginTop: '16px' }}>
-            API Key (Optional)
+            API Key <span className="ai-required">(required)</span>
           </div>
           <input
             type="password"
@@ -119,8 +106,8 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
             onChange={(e) => setKey(e.target.value)}
           />
           <div className="ai-key-hint">
-            Stored locally in your browser's <code>localStorage</code>. Leave empty to use{' '}
-            <strong>Demo Simulation Mode</strong>.
+            Stored locally in your browser's <code>localStorage</code>. An API key is
+            required to use the AI features.
           </div>
         </div>
 
@@ -128,7 +115,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
           <button className="ai-btn-secondary" onClick={onClose}>
             Cancel
           </button>
-          <button className="ai-btn-primary" onClick={handleSave}>
+          <button className="ai-btn-primary" onClick={handleSave} disabled={!key.trim()}>
             Save & Apply
           </button>
         </div>
