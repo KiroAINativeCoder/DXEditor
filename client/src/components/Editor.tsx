@@ -596,7 +596,6 @@ function CollabEditor({
   onChangeFont,
   focusAnchor,
   onThreadCreated,
-  onOpenCommentsAt,
   onEditorReady,
 }: {
   docId: string
@@ -820,14 +819,21 @@ function CollabEditor({
       const mark = target.closest<HTMLElement>('[data-comment-id]')
       if (!mark) return
       const commentId = mark.getAttribute('data-comment-id')!
-      // Clicking commented text opens the SIDE PANEL and focuses that thread —
-      // we no longer also show a separate floating popover (that produced two
-      // overlapping comment UIs for the same thread).
-      onOpenCommentsAt?.(commentId)
+      // Clicking commented text opens the floating thread popup anchored to the
+      // mark (the same white-box UI as the new-comment composer), not the side
+      // panel. Close any open new-comment composer first.
+      setComposer(null)
+      // Position like the new-comment composer: the popover is absolutely
+      // positioned against a viewport-origin ancestor, so use raw viewport
+      // coords (same convention as coordsAtPos used for the bubble/composer).
+      const rect = mark.getBoundingClientRect()
+      setPopReply('')
+      setPopover({ top: rect.bottom + 8, left: rect.left, commentId, thread: null })
+      loadPopoverThread(commentId)
     }
     scroll.addEventListener('click', onClick)
     return () => scroll.removeEventListener('click', onClick)
-  }, [docId, onOpenCommentsAt])
+  }, [docId, loadPopoverThread])
 
   // Add a reply to the thread shown in the popover. Reopens it if resolved so
   // it reappears in the side panel, then refreshes both views.
