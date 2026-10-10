@@ -25,10 +25,12 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
   if (!isOpen) return null
 
   const handleProviderSelect = (p: AiProvider) => {
-    if (PROVIDERS[p].disabled) return
+    if (PROVIDERS[p]?.disabled) return
     setProvider(p)
     const pCfg = PROVIDERS[p]
-    setModel(pCfg.models[0].id)
+    const savedModel = localStorage.getItem(`dx_model_${p}`)
+    const isValidModel = savedModel && pCfg.models.some((m) => m.id === savedModel)
+    setModel(isValidModel ? savedModel : pCfg.models[0].id)
     const savedKey = localStorage.getItem(`dx_key_${p}`) || ''
     setKey(savedKey)
   }
@@ -57,7 +59,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
         <div className="ai-modal-body">
           <div className="ai-field-label">Select AI Provider</div>
 
-          {/* 4-Card Provider Selector */}
+          {/* Provider Grid */}
           <div className="ai-provider-grid">
             {(Object.keys(PROVIDERS) as AiProvider[]).map((pKey) => {
               const p = PROVIDERS[pKey]
@@ -69,7 +71,10 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
                   onClick={() => handleProviderSelect(pKey)}
                 >
                   <div className="ai-card-top">
-                    <span className="ai-card-name">{p.name}</span>
+                    <span className="ai-card-name">
+                      {p.icon ? <span className="ai-card-icon">{p.icon}</span> : null}
+                      {p.name}
+                    </span>
                     <span className="ai-card-tag">{p.tag}</span>
                   </div>
                   <div className="ai-card-desc">{p.hint}</div>
@@ -91,6 +96,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
                   onClick={() => setModel(m.id)}
                 >
                   <span className="ai-chip-name">{m.label}</span>
+                  {m.badge ? <span className="ai-chip-badge">{m.badge}</span> : null}
                 </button>
               )
             })}

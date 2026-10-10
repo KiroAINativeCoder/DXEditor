@@ -21,15 +21,24 @@ import Menu from './Menu'
 import { CommentMark } from './CommentMark'
 import { MermaidNode } from './Mermaid'
 import { CodeRef } from './CodeRef'
+import MermaidModal from './MermaidModal'
 import { docs, comments, images, type Role, type Thread as ThreadT, type DocStatus } from '../lib/api'
 import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import AiSettingsModal from './AiSettingsModal'
 import AiRewritePopover from './AiRewritePopover'
+import GeminiSparkleIcon from './GeminiSparkleIcon'
 import { type AiMode, sanitizeTableHtml, getAiConfig } from '../lib/ai'
 import ReviewBar from './ReviewBar'
 import { statusMeta, DOC_STATUSES } from '../lib/rfc'
 import { docToMarkdown, markdownToDoc } from '../lib/markdown'
+import {
+  type Folder,
+  getFolders,
+  getDocFolderId,
+  moveDocToFolder,
+  createFolder,
+} from '../lib/folders'
 import './Editor.css'
 
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
@@ -120,6 +129,34 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
   }
   // Bumped to force the review panel to reload reviewers/reviews.
   const [reviewRefresh, setReviewRefresh] = useState(0)
+
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(() => getDocFolderId(docId))
+  const [folders, setFolders] = useState<Folder[]>(() => getFolders())
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false)
+  const folderPickerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const update = () => {
+      setCurrentFolderId(getDocFolderId(docId))
+      setFolders(getFolders())
+    }
+    update()
+    window.addEventListener('dx:folders-updated', update)
+    return () => window.removeEventListener('dx:folders-updated', update)
+  }, [docId])
+
+  useEffect(() => {
+    if (!folderPickerOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (folderPickerRef.current && !folderPickerRef.current.contains(e.target as Node)) {
+        setFolderPickerOpen(false)
+      }
+    }
+    window.addEventListener('mousedown', onClick)
+    return () => window.removeEventListener('mousedown', onClick)
+  }, [folderPickerOpen])
+
+  const currentFolder = folders.find((f) => f.id === currentFolderId)
 
   // --- Versioning: capture/apply the live Yjs state as a base64 update. ---
   function snapshotUpdate(): string | null {
@@ -380,14 +417,76 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
       />
       <div className="editor-topbar">
         <div className="title-block">
-          <input
-            className="doc-title-input"
-            value={title}
-            placeholder="Untitled document"
-            readOnly
-            title="The title follows the first line of the document"
-            aria-label="Document title (from first line)"
-          />
+          <div className="doc-title-row">
+            <input
+              className="doc-title-input"
+              value={title}
+              placeholder="Untitled document"
+              readOnly
+              title="The title follows the first line of the document"
+              aria-label="Document title (from first line)"
+            />
+            <div className="doc-folder-chip-container" ref={folderPickerRef}>
+              <button
+                type="button"
+                className="doc-folder-chip"
+                onClick={() => setFolderPickerOpen((o) => !o)}
+                title="Organize into folder"
+              >
+                <span className="dfc-icon">📁</span>
+                <span className="dfc-name">{currentFolder ? currentFolder.name : 'Unfiled'}</span>
+                <span className="dfc-arrow">▾</span>
+              </button>
+
+              {folderPickerOpen && (
+                <div className="doc-folder-dropdown">
+                  <div className="dfd-header">Organize into Folder</div>
+                  <button
+                    type="button"
+                    className={`dfd-item${!currentFolderId ? ' is-active' : ''}`}
+                    onClick={() => {
+                      moveDocToFolder(docId, null)
+                      setFolderPickerOpen(false)
+                    }}
+                  >
+                    <span className="dfd-item-icon">📄</span>
+                    <span className="dfd-item-name">Unfiled</span>
+                    {!currentFolderId && <span className="dfd-item-check">✓</span>}
+                  </button>
+                  {folders.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`dfd-item${currentFolderId === f.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        moveDocToFolder(docId, f.id)
+                        setFolderPickerOpen(false)
+                      }}
+                    >
+                      <span className="dfd-item-icon">📁</span>
+                      <span className="dfd-item-name">{f.name}</span>
+                      {currentFolderId === f.id && <span className="dfd-item-check">✓</span>}
+                    </button>
+                  ))}
+                  <div className="dfd-divider" />
+                  <button
+                    type="button"
+                    className="dfd-new-btn"
+                    onClick={() => {
+                      const name = window.prompt('New folder name:')
+                      if (name && name.trim()) {
+                        const newF = createFolder(name.trim())
+                        moveDocToFolder(docId, newF.id)
+                        setFolderPickerOpen(false)
+                      }
+                    }}
+                  >
+                    + Create new folder…
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
           <div className="doc-menu-row" role="menubar" aria-label="Document menus">
             <Menu
               label="Document"
@@ -756,22 +855,20 @@ function CollabEditor({
     return () => scroll.removeEventListener('dblclick', onDblClick)
   }, [])
 
-  // Mermaid diagram enlarge: the NodeView dispatches the rendered SVG.
-  const [mermaidZoom, setMermaidZoom] = useState<string | null>(null)
+  // Mermaid diagram enlarge: the NodeView dispatches { svg, source } or raw svg string
+  const [mermaidModalData, setMermaidModalData] = useState<{ svg: string; source?: string } | null>(null)
   useEffect(() => {
     const onEnlarge = (e: Event) => {
-      const svg = (e as CustomEvent<string>).detail
-      if (svg) setMermaidZoom(svg)
+      const detail = (e as CustomEvent).detail
+      if (typeof detail === 'string') {
+        setMermaidModalData({ svg: detail })
+      } else if (detail && detail.svg) {
+        setMermaidModalData(detail)
+      }
     }
     window.addEventListener('dx-mermaid-enlarge', onEnlarge)
     return () => window.removeEventListener('dx-mermaid-enlarge', onEnlarge)
   }, [])
-  useEffect(() => {
-    if (!mermaidZoom) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMermaidZoom(null)
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [mermaidZoom])
   useEffect(() => {
     if (!lightbox) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setLightbox(null)
@@ -1039,32 +1136,48 @@ function CollabEditor({
             onClick={openComposer}
             title="Add a comment"
           >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
             Comment
           </button>
           <div className="ai-bubble-divider" />
           <button
             type="button"
-            className="ai-bubble-btn"
+            className="ai-bubble-btn ai-bubble-btn--ai"
             onClick={() => openAiPopover('sentence')}
-            title="Crispify into concise sentence(s)"
+            title="Crispify into concise sentence(s) with AI"
           >
-            Crispify
+            <GeminiSparkleIcon size={14} />
+            <span>Crispify</span>
           </button>
           <button
             type="button"
-            className="ai-bubble-btn"
+            className="ai-bubble-btn ai-bubble-btn--ai"
             onClick={() => openAiPopover('bullet')}
-            title="Convert into bullet points"
+            title="Convert into bullet points with AI"
           >
-            Bulletize
+            <GeminiSparkleIcon size={14} />
+            <span>Bulletize</span>
           </button>
           <button
             type="button"
-            className="ai-bubble-btn"
+            className="ai-bubble-btn ai-bubble-btn--ai"
             onClick={() => openAiPopover('table')}
-            title="Auto-tabularize data points into rows & columns"
+            title="Auto-tabularize data points into rows & columns with AI"
           >
-            Tabularize
+            <GeminiSparkleIcon size={14} />
+            <span>Tabularize</span>
           </button>
         </div>
       )}
@@ -1147,17 +1260,12 @@ function CollabEditor({
         </div>
       )}
 
-      {mermaidZoom && (
-        <div className="img-lightbox" onClick={() => setMermaidZoom(null)}>
-          <button className="img-lightbox-close" onClick={() => setMermaidZoom(null)} aria-label="Close">
-            ✕
-          </button>
-          <div
-            className="mermaid-zoom-svg"
-            onClick={(e) => e.stopPropagation()}
-            dangerouslySetInnerHTML={{ __html: mermaidZoom }}
-          />
-        </div>
+      {mermaidModalData && (
+        <MermaidModal
+          svg={mermaidModalData.svg}
+          source={mermaidModalData.source}
+          onClose={() => setMermaidModalData(null)}
+        />
       )}
 
       {popover && (

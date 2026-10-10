@@ -1,6 +1,7 @@
 import type { Editor } from '@tiptap/react'
 import Select from './Select'
 import { type FontKey, FONT_OPTIONS } from './Editor'
+import GeminiSparkleIcon from './GeminiSparkleIcon'
 import './Toolbar.css'
 
 type Props = {
@@ -180,6 +181,7 @@ export default function Toolbar({
               onMouseDown={(e) => e.preventDefault()}
               onClick={onOpenAi}
             >
+              <GeminiSparkleIcon size={14} />
               AI Buddy
             </button>
             {onOpenAiSettings && (

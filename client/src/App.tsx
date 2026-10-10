@@ -24,6 +24,7 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('dx_theme', theme)
+    window.dispatchEvent(new CustomEvent('dx:theme-changed', { detail: theme }))
   }, [theme])
 
   // Selection is driven by the URL so every document is shareable by link.

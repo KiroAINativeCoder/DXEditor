@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { docs as docsApi, type DocMeta } from '../lib/api'
 import { getRecentIds } from '../lib/recent'
+import { getDocFolders, getFolders, type Folder } from '../lib/folders'
 import './Home.css'
 
 type Props = {
@@ -26,26 +27,46 @@ function initial(name: string) {
 export default function Home({ userName, refreshKey, onOpen, onNewDoc }: Props) {
   const [items, setItems] = useState<DocMeta[]>([])
   const [recentIds, setRecentIds] = useState<string[]>([])
+  const [docFolders, setDocFolders] = useState<Record<string, string>>(() => getDocFolders())
+  const [folders, setFolders] = useState<Folder[]>(() => getFolders())
 
   useEffect(() => {
     let cancelled = false
     docsApi.list().then((d) => !cancelled && setItems(d))
     setRecentIds(getRecentIds())
+    const updateFolders = () => {
+      setDocFolders(getDocFolders())
+      setFolders(getFolders())
+    }
+    updateFolders()
+    window.addEventListener('dx:folders-updated', updateFolders)
     return () => {
       cancelled = true
+      window.removeEventListener('dx:folders-updated', updateFolders)
     }
   }, [refreshKey])
 
   const byId = new Map(items.map((d) => [d.id, d]))
+  const foldersById = new Map(folders.map((f) => [f.id, f]))
   // Recently viewed: ids from localStorage that still exist, in view order.
   const recent = recentIds.map((id) => byId.get(id)).filter(Boolean).slice(0, 6) as DocMeta[]
 
   function Card({ d, sub }: { d: DocMeta; sub: string }) {
+    const fId = docFolders[d.id]
+    const folder = fId ? foldersById.get(fId) : null
+
     return (
       <button className="home-card" onClick={() => onOpen(d.id)}>
         <span className="hc-icon">📄</span>
         <span className="hc-title">{d.title || 'Untitled document'}</span>
-        <span className="hc-meta">{sub}</span>
+        <div className="hc-bottom">
+          <span className="hc-meta">{sub}</span>
+          {folder && (
+            <span className="hc-folder" title={`Folder: ${folder.name}`}>
+              📁 {folder.name}
+            </span>
+          )}
+        </div>
       </button>
     )
   }

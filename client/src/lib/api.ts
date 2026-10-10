@@ -143,24 +143,86 @@ async function myId(): Promise<string> {
   return data.user?.id ?? ''
 }
 
+function normalizeDocRow<T extends { id: string; title: string; owner_id: string; created_at: string; updated_at: string; status?: any; superseded_by?: any }>(
+  d: T,
+): T & { status: DocStatus; superseded_by: string | null } {
+  return {
+    ...d,
+    status: (d.status as DocStatus) || 'DRAFT',
+    superseded_by: d.superseded_by || null,
+  }
+}
+
+let hasStatusCol: boolean | null = null
+
 export const docs = {
   list: async (): Promise<DocMeta[]> => {
     const uid = await myId()
-    const { data, error } = await supabase
-      .from('document')
-      .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
-      .order('updated_at', { ascending: false })
+    let data: any[] | null = null
+    let error: any = null
+
+    if (hasStatusCol !== false) {
+      const res = await supabase
+        .from('document')
+        .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
+        .order('updated_at', { ascending: false })
+      if (!res.error) {
+        hasStatusCol = true
+        data = res.data
+      } else if (res.error.message?.includes('status') || res.error.message?.includes('superseded_by') || res.error.code === '42703') {
+        hasStatusCol = false
+      } else {
+        error = res.error
+      }
+    }
+
+    if (hasStatusCol === false) {
+      const fb = await supabase
+        .from('document')
+        .select('id,title,owner_id,created_at,updated_at')
+        .order('updated_at', { ascending: false })
+      data = fb.data
+      error = fb.error
+    }
+
     if (error) throw new ApiError(500, error.message)
-    return (data ?? []).map((d) => ({ ...d, isOwner: d.owner_id === uid }))
+    return (data ?? []).map((d) => ({
+      ...normalizeDocRow(d),
+      isOwner: d.owner_id === uid,
+    }))
   },
 
   get: async (id: string): Promise<DocDetail> => {
     const uid = await myId()
-    const { data, error } = await supabase
-      .from('document')
-      .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
-      .eq('id', id)
-      .maybeSingle()
+    let data: any = null
+    let error: any = null
+
+    if (hasStatusCol !== false) {
+      const res = await supabase
+        .from('document')
+        .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
+        .eq('id', id)
+        .maybeSingle()
+      if (!res.error) {
+        hasStatusCol = true
+        data = res.data
+      } else if (res.error.message?.includes('status') || res.error.message?.includes('superseded_by') || res.error.code === '42703') {
+        hasStatusCol = false
+      } else {
+        error = res.error
+      }
+    }
+
+    if (hasStatusCol === false) {
+      const fb = await supabase
+        .from('document')
+        .select('id,title,owner_id,created_at,updated_at')
+        .eq('id', id)
+        .maybeSingle()
+      data = fb.data
+      error = fb.error
+    }
+
     if (error || !data) throw new ApiError(404, 'Document not found')
     let role: Role = data.owner_id === uid ? 'OWNER' : 'VIEWER'
     if (data.owner_id !== uid) {
@@ -172,7 +234,7 @@ export const docs = {
         .maybeSingle()
       if (m) role = m.role as Role
     }
-    return { ...data, isOwner: data.owner_id === uid, role }
+    return { ...normalizeDocRow(data), isOwner: data.owner_id === uid, role }
   },
 
   create: async (title?: string): Promise<DocDetail> => {
@@ -193,15 +255,41 @@ export const docs = {
     }
     if (error) throw new ApiError(403, error.message)
 
-    const { data, error: selErr } = await supabase
-      .from('document')
-      .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
-      .eq('owner_id', uid)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
+    let data: any = null
+    let selErr: any = null
+
+    if (hasStatusCol !== false) {
+      const res = await supabase
+        .from('document')
+        .select('id,title,owner_id,status,superseded_by,created_at,updated_at')
+        .eq('owner_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (!res.error) {
+        hasStatusCol = true
+        data = res.data
+      } else if (res.error.message?.includes('status') || res.error.message?.includes('superseded_by') || res.error.code === '42703') {
+        hasStatusCol = false
+      } else {
+        selErr = res.error
+      }
+    }
+
+    if (hasStatusCol === false) {
+      const fb = await supabase
+        .from('document')
+        .select('id,title,owner_id,created_at,updated_at')
+        .eq('owner_id', uid)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      data = fb.data
+      selErr = fb.error
+    }
+
     if (selErr || !data) throw new ApiError(500, selErr?.message ?? 'Created but could not load the document')
-    return { ...data, isOwner: true, role: 'OWNER' }
+    return { ...normalizeDocRow(data), isOwner: true, role: 'OWNER' }
   },
 
   updateTitle: async (id: string, title: string) => {
@@ -216,7 +304,13 @@ export const docs = {
     patch: { status?: DocStatus; superseded_by?: string | null },
   ) => {
     const { error } = await supabase.from('document').update(patch).eq('id', id)
-    if (error) throw new ApiError(403, error.message)
+    if (error) {
+      if (error.message?.includes('status') || error.message?.includes('superseded_by') || error.code === '42703') {
+        console.warn('document.status column does not exist in database yet (migration 0006 pending). Skipping updateMeta.')
+        return
+      }
+      throw new ApiError(403, error.message)
+    }
   },
 
   remove: async (id: string) => {

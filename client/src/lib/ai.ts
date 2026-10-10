@@ -1,4 +1,4 @@
-export type AiProvider = 'anthropic' | 'gemini' | 'deepseek' | 'openai'
+export type AiProvider = 'gemini' | 'openrouter' | 'anthropic' | 'deepseek' | 'openai'
 export type AiMode = 'sentence' | 'bullet' | 'table'
 
 export type ModelOption = {
@@ -19,30 +19,62 @@ export type ProviderConfig = {
 }
 
 export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
-  anthropic: {
-    name: 'Anthropic Claude',
-    placeholder: 'sk-ant-...',
-    hint: 'Direct Anthropic API key from console.anthropic.com.',
-    tag: 'Direct API',
-    tagColor: '#d97757',
-    icon: '',
-    models: [
-      { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', badge: 'Recommended' },
-      { id: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1', badge: 'Most Capable' },
-      { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', badge: 'Fast' },
-    ],
-  },
   gemini: {
     name: 'Google Gemini',
     placeholder: 'AIzaSy...',
     hint: 'Direct Google AI Studio API key (free tier available at aistudio.google.com).',
     tag: 'Direct API',
     tagColor: '#2563eb',
-    icon: '',
+    icon: '✨',
     models: [
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: 'Fast & Capable' },
+      { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: 'Ultra Fast' },
+      { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', badge: 'Fast & Capable' },
+      { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite', badge: 'Resilient' },
       { id: 'gemini-flash-latest', label: 'Gemini Flash Latest', badge: 'Auto-Updating' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: 'Fast' },
       { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: 'Deep Reasoning' },
+    ],
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    placeholder: 'sk-or-v1-...',
+    hint: 'All-in-one gateway: 1 single key gives access to Claude, Gemini, DeepSeek, GPT-4o, and Llama.',
+    tag: 'All-in-One',
+    tagColor: '#2563eb',
+    icon: '🌐',
+    models: [
+      { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet', badge: 'Recommended' },
+      { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash', badge: 'Fast' },
+      { id: 'deepseek/deepseek-chat', label: 'DeepSeek V3', badge: 'Popular' },
+      { id: 'deepseek/deepseek-r1', label: 'DeepSeek R1', badge: 'Reasoning' },
+      { id: 'openai/gpt-4o', label: 'GPT-4o', badge: 'Flagship' },
+      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B', badge: 'Open' },
+    ],
+  },
+  anthropic: {
+    name: 'Anthropic Claude',
+    placeholder: 'sk-ant-...',
+    hint: 'Direct Anthropic API key from console.anthropic.com.',
+    tag: 'Direct API',
+    tagColor: '#d97757',
+    icon: '⚡',
+    models: [
+      { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', badge: 'Recommended' },
+      { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', badge: 'Flagship' },
+      { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', badge: 'Fast' },
+      { id: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1', badge: 'Most Capable' },
+    ],
+  },
+  deepseek: {
+    name: 'DeepSeek Direct',
+    placeholder: 'sk-...',
+    hint: 'Direct DeepSeek API key from platform.deepseek.com.',
+    tag: 'Direct API',
+    tagColor: '#059669',
+    icon: '⚡',
+    models: [
+      { id: 'deepseek-chat', label: 'DeepSeek-V3', badge: 'Fast & Crisp' },
+      { id: 'deepseek-reasoner', label: 'DeepSeek-R1', badge: 'Deep Reasoner' },
     ],
   },
   openai: {
@@ -51,24 +83,12 @@ export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
     hint: 'Direct OpenAI API key from platform.openai.com.',
     tag: 'Direct API',
     tagColor: '#0f172a',
-    icon: '',
+    icon: '🤖',
     models: [
       { id: 'gpt-4o', label: 'GPT-4o', badge: 'Flagship' },
       { id: 'gpt-4o-mini', label: 'GPT-4o Mini', badge: 'Fast' },
       { id: 'gpt-4.1', label: 'GPT-4.1', badge: 'Latest' },
-    ],
-  },
-  deepseek: {
-    name: 'DeepSeek Direct',
-    placeholder: 'sk-...',
-    hint: 'Coming soon.',
-    tag: 'Coming Soon',
-    tagColor: '#94a3b8',
-    icon: '',
-    disabled: true,
-    models: [
-      { id: 'deepseek-chat', label: 'DeepSeek-V3', badge: '' },
-      { id: 'deepseek-reasoner', label: 'DeepSeek-R1', badge: '' },
+      { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', badge: 'Legacy' },
     ],
   },
 }
@@ -136,22 +156,19 @@ export function getAiConfig(): {
   model: string
   isLive: boolean
 } {
-  const provider = (localStorage.getItem('dx_ai_provider') as AiProvider) || 'gemini'
+  let provider = (localStorage.getItem('dx_ai_provider') as AiProvider) || 'gemini'
+  if (!PROVIDERS[provider]) {
+    provider = 'gemini'
+  }
   const key = (localStorage.getItem(`dx_key_${provider}`) || '').trim()
   let model =
     localStorage.getItem(`dx_model_${provider}`) || PROVIDERS[provider].models[0].id
 
-  // Migrate any stored deprecated/invalid Gemini model id to a real API model.
-  // gemini-2.0-flash was retired by Google (returns "no longer available"), so
-  // it is NOT valid and anyone still on it is moved to the auto-updating alias.
+  // Auto-migrate any stored deprecated/invalid Gemini models to gemini-3.8-flash
   if (provider === 'gemini') {
-    const validGemini = new Set([
-      'gemini-2.5-flash',
-      'gemini-flash-latest',
-      'gemini-2.5-pro',
-    ])
-    if (!validGemini.has(model)) {
-      model = 'gemini-flash-latest'
+    const validGemini = new Set(PROVIDERS.gemini.models.map((m) => m.id))
+    if (!validGemini.has(model) || model === 'gemini-2.0-flash' || model === 'gemini-1.5-flash' || model === 'gemini-1.5-pro') {
+      model = 'gemini-3.8-flash'
       try {
         localStorage.setItem('dx_model_gemini', model)
       } catch {
@@ -240,9 +257,9 @@ export async function transformText(params: {
       let res: Response
       try {
         res = await callGemini(model)
-        // Auto-fallback to a resilient live model on a 503 high-demand spike.
-        if (res.status === 503 && model !== 'gemini-flash-latest') {
-          res = await callGemini('gemini-flash-latest')
+        // Auto-fallback to resilient model if 503 high demand spike occurs
+        if (res.status === 503 && model !== 'gemini-3.5-flash-lite') {
+          res = await callGemini('gemini-3.5-flash-lite')
         }
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') {
@@ -259,6 +276,32 @@ export async function transformText(params: {
       const out = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
       if (out) return cleanAiFences(out)
       throw new Error('Gemini returned an empty response')
+    } else if (provider === 'openrouter') {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+          'HTTP-Referer': typeof window !== 'undefined' ? window.location.href : '',
+          'X-Title': 'DXEditor AI Rewrite',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent },
+          ],
+          temperature: mode === 'table' ? 0.2 : 0.3,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error?.message || `OpenRouter API failed (${res.status})`)
+      }
+      const data = await res.json()
+      const out = data.choices?.[0]?.message?.content?.trim()
+      if (out) return cleanAiFences(out)
+      throw new Error('OpenRouter returned an empty response')
     } else if (provider === 'deepseek') {
       const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
@@ -276,8 +319,8 @@ export async function transformText(params: {
         }),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error?.message || 'DeepSeek API failed')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error?.message || `DeepSeek API failed (${res.status})`)
       }
       const data = await res.json()
       const out = data.choices?.[0]?.message?.content?.trim()
@@ -300,8 +343,8 @@ export async function transformText(params: {
         }),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error?.message || 'OpenAI API failed')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error?.message || `OpenAI API failed (${res.status})`)
       }
       const data = await res.json()
       const out = data.choices?.[0]?.message?.content?.trim()

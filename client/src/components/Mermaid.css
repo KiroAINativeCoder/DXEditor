@@ -1,11 +1,21 @@
 .mermaid-block {
-  margin: 0.6em 0;
+  margin: 0.8em 0;
   border: 1px solid #e6e6e3;
   border-radius: 10px;
   overflow: hidden;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.mermaid-editor { background: #fbfbfa; }
+.mermaid-block:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.mermaid-editor {
+  background: #fbfbfa;
+}
+
 .mermaid-src {
   width: 100%;
   box-sizing: border-box;
@@ -19,6 +29,7 @@
   resize: vertical;
   outline: none;
 }
+
 .mermaid-actions {
   display: flex;
   gap: 8px;
@@ -26,6 +37,7 @@
   background: #f4f3f1;
   border-top: 1px solid #e6e6e3;
 }
+
 .mmd-btn {
   border: 1px solid #dcdbd7;
   background: #fff;
@@ -34,74 +46,276 @@
   font-size: 13px;
   color: #3a3f45;
   cursor: pointer;
+  transition: all 0.12s ease;
 }
-.mmd-btn:hover { background: #ecebe8; }
-.mmd-btn.primary { background: #2567f4; color: #fff; border-color: #2567f4; }
-.mmd-btn.primary:hover { background: #1a56da; }
 
+.mmd-btn:hover {
+  background: #ecebe8;
+}
+
+.mmd-btn.primary {
+  background: #2567f4;
+  color: #fff;
+  border-color: #2567f4;
+}
+
+.mmd-btn.primary:hover {
+  background: #1a56da;
+}
+
+/* Diagram Preview Container */
 .mermaid-preview {
   position: relative;
-  padding: 16px;
-  background: #fff;
+  padding: 24px 16px;
+  background: #ffffff;
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-height: 120px;
+  overflow-x: auto;
+  transition: background 0.15s ease;
 }
-.mermaid-svg { max-width: 100%; }
-.mermaid-svg svg { max-width: 100%; height: auto; }
+
+/* Diagram Sizing */
+.mermaid-svg {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  transition: max-width 0.18s ease;
+}
+
+.mermaid-preview.size-small .mermaid-svg {
+  max-width: 380px;
+}
+
+.mermaid-preview.size-medium .mermaid-svg {
+  max-width: 620px;
+}
+
+/* Crucial: Override Mermaid's inline style="max-width: ...px" on generated SVG */
+.mermaid-svg svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+}
+
 .mermaid-error {
-  color: #c23b3b;
+  color: #ef4444;
   font-size: 13px;
   font-family: ui-monospace, monospace;
-  padding: 8px;
+  padding: 12px;
+  background: #fef2f2;
+  border-radius: 6px;
+  border: 1px solid #fee2e2;
 }
-.mermaid-edit-btn {
+
+/* Top Toolbar */
+.mermaid-top-toolbar {
   position: absolute;
   top: 8px;
   right: 8px;
-  border: 1px solid #dcdbd7;
-  background: #fff;
-  border-radius: 6px;
-  padding: 3px 10px;
-  font-size: 12px;
-  color: #3a3f45;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   opacity: 0;
-  transition: opacity 0.12s;
+  transition: opacity 0.12s ease;
+  user-select: none;
+  z-index: 5;
 }
-.mermaid-preview:hover .mermaid-edit-btn { opacity: 1; }
-.mermaid-edit-btn:hover { background: #ecebe8; }
 
+.mermaid-preview:hover .mermaid-top-toolbar {
+  opacity: 1;
+}
+
+/* Size Switcher */
+.mermaid-size-switcher {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dcdbd7;
+  border-radius: 6px;
+  padding: 2px 4px;
+  gap: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mermaid-size-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 2px;
+  padding-left: 2px;
+}
+
+.mermaid-size-btn {
+  border: none;
+  background: transparent;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.mermaid-size-btn:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.mermaid-size-btn.is-active {
+  background: #2567f4;
+  color: #ffffff;
+}
+
+/* Toolbar Action Buttons */
+.mermaid-tool-btn {
+  border: 1px solid #dcdbd7;
+  background: #ffffff;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.12s ease;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.mermaid-tool-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.mermaid-tool-btn.primary {
+  color: #2567f4;
+}
+
+.mermaid-tool-btn.primary:hover {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+/* Drag handle */
 .mermaid-drag {
   position: absolute;
   top: 8px;
   left: 8px;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 6px;
-  background: #f0efec;
-  color: #8a8f96;
-  font-size: 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 13px;
   line-height: 1;
   cursor: grab;
   opacity: 0;
   transition: opacity 0.12s;
   user-select: none;
 }
-.mermaid-preview:hover .mermaid-drag { opacity: 1; }
-.mermaid-drag:active { cursor: grabbing; }
 
-.mermaid-enlarge-btn {
-  position: absolute;
-  top: 8px;
-  right: 56px;
-  border: 1px solid #dcdbd7;
-  background: #fff;
-  border-radius: 6px;
-  padding: 3px 9px;
-  font-size: 13px;
-  color: #3a3f45;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s;
+.mermaid-preview:hover .mermaid-drag {
+  opacity: 1;
 }
-.mermaid-preview:hover .mermaid-enlarge-btn { opacity: 1; }
-.mermaid-enlarge-btn:hover { background: #ecebe8; }
+
+.mermaid-drag:active {
+  cursor: grabbing;
+}
+
+/* Dark Mode Styles */
+[data-theme="dark"] .mermaid-block {
+  border-color: #30363d;
+  background: #161b22;
+}
+
+[data-theme="dark"] .mermaid-block:hover {
+  border-color: #388bfd;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .mermaid-preview {
+  background: #161b22;
+}
+
+[data-theme="dark"] .mermaid-editor {
+  background: #0d1117;
+}
+
+[data-theme="dark"] .mermaid-actions {
+  background: #0d1117;
+  border-top-color: #30363d;
+}
+
+[data-theme="dark"] .mmd-btn {
+  background: #21262d;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
+[data-theme="dark"] .mmd-btn:hover {
+  background: #30363d;
+  color: #f0f6fc;
+}
+
+[data-theme="dark"] .mermaid-size-switcher {
+  background: #21262d;
+  border-color: #30363d;
+}
+
+[data-theme="dark"] .mermaid-size-label {
+  color: #8b949e;
+}
+
+[data-theme="dark"] .mermaid-size-btn {
+  color: #8b949e;
+}
+
+[data-theme="dark"] .mermaid-size-btn:hover {
+  background: #30363d;
+  color: #f0f6fc;
+}
+
+[data-theme="dark"] .mermaid-size-btn.is-active {
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .mermaid-tool-btn {
+  background: #21262d;
+  border-color: #30363d;
+  color: #c9d1d9;
+}
+
+[data-theme="dark"] .mermaid-tool-btn:hover {
+  background: #30363d;
+  border-color: #484f58;
+  color: #f0f6fc;
+}
+
+[data-theme="dark"] .mermaid-tool-btn.primary {
+  color: #58a6ff;
+}
+
+[data-theme="dark"] .mermaid-tool-btn.primary:hover {
+  background: #1f293d;
+  border-color: #388bfd;
+}
+
+[data-theme="dark"] .mermaid-drag {
+  background: #21262d;
+  border-color: #30363d;
+  color: #8b949e;
+}
+
+[data-theme="dark"] .mermaid-error {
+  background: #200f13;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}

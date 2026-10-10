@@ -20,7 +20,7 @@
   background: #ffffff;
   border-radius: 18px;
   box-shadow: 0 20px 50px -10px rgba(15, 23, 42, 0.25), 0 0 1px rgba(0,0,0,0.1);
-  width: 560px;
+  width: 600px;
   max-width: calc(100vw - 32px);
   overflow: hidden;
   animation: aiModalZoom 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -192,6 +192,18 @@
 }
 .ai-chip-name {
   font-size: 12px;
+}
+.ai-chip-badge {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+.ai-model-chip.is-selected .ai-chip-badge {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
 }
 
 .ai-key-input {

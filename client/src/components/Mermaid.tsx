@@ -1,22 +1,16 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import mermaid from 'mermaid'
 import './Mermaid.css'
 
-// One-time mermaid init (manual render, neutral theme).
-let inited = false
-function ensureInit() {
-  if (inited) return
-  mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'strict' })
-  inited = true
-}
+export type MermaidSize = 'small' | 'medium'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     mermaid: {
-      /** Insert a mermaid diagram block (optionally seeded with source). */
-      insertMermaid: (source?: string) => ReturnType
+      /** Insert a mermaid diagram block (optionally seeded with source and size). */
+      insertMermaid: (source?: string, size?: MermaidSize) => ReturnType
     }
   }
 }
@@ -26,30 +20,135 @@ const DEFAULT_SRC = `graph TD
   B -->|Yes| C[Do a thing]
   B -->|No| D[Do another]`
 
+function getAppTheme(): 'light' | 'dark' {
+  if (typeof document !== 'undefined') {
+    const attr = document.documentElement.getAttribute('data-theme')
+    if (attr === 'dark') return 'dark'
+    if (attr === 'light') return 'light'
+    const stored = localStorage.getItem('dx_theme')
+    if (stored === 'dark') return 'dark'
+  }
+  return 'light'
+}
+
 function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
   const source: string = node.attrs.source || ''
+  const size: MermaidSize = node.attrs.size || 'medium'
   const [editing, setEditing] = useState(!source.trim())
   const [draft, setDraft] = useState(source)
   const [svg, setSvg] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const idRef = useRef(`mmd-${Math.random().toString(36).slice(2)}`)
+  const [theme, setTheme] = useState<'light' | 'dark'>(getAppTheme)
   const canEdit = editor.isEditable
 
-  // Render the diagram whenever the (committed) source changes.
+  // Watch for theme toggles to immediately re-render diagram with matching theme
+  useEffect(() => {
+    const onThemeChange = (e: Event) => {
+      const detail = (e as CustomEvent<'light' | 'dark'>).detail
+      if (detail) setTheme(detail)
+      else setTheme(getAppTheme())
+    }
+    window.addEventListener('dx:theme-changed', onThemeChange)
+
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+          setTheme(getAppTheme())
+        }
+      }
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+
+    return () => {
+      window.removeEventListener('dx:theme-changed', onThemeChange)
+      observer.disconnect()
+    }
+  }, [])
+
+  // Render the diagram whenever source or theme changes
   useEffect(() => {
     let cancelled = false
-    if (!source.trim()) { setSvg(''); setError(null); return }
-    ensureInit()
+    if (!source.trim()) {
+      setSvg('')
+      setError(null)
+      return
+    }
+
+    const isDark = theme === 'dark'
+    try {
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: isDark ? 'dark' : 'neutral',
+        securityLevel: 'strict',
+        fontFamily: 'inherit',
+        themeVariables: isDark
+          ? {
+              darkMode: true,
+              background: '#161b22',
+              primaryColor: '#1f6feb',
+              primaryTextColor: '#f0f6fc',
+              primaryBorderColor: '#388bfd',
+              lineColor: '#8b949e',
+              secondaryColor: '#21262d',
+              tertiaryColor: '#161b22',
+              mainBkg: '#161b22',
+              nodeBorder: '#388bfd',
+              clusterBkg: '#21262d',
+              clusterBorder: '#30363d',
+              defaultLinkColor: '#8b949e',
+              titleColor: '#f0f6fc',
+              edgeLabelBackground: '#21262d',
+              actorBkg: '#161b22',
+              actorBorder: '#388bfd',
+              actorTextColor: '#f0f6fc',
+              signalColor: '#8b949e',
+              signalTextColor: '#f0f6fc',
+            }
+          : undefined,
+      })
+    } catch {
+      // ignore init error
+    }
+
+    const renderId = `mmd-${Math.random().toString(36).slice(2)}-${Date.now()}`
     mermaid
-      .render(idRef.current, source)
-      .then((r) => { if (!cancelled) { setSvg(r.svg); setError(null) } })
-      .catch((e) => { if (!cancelled) setError(e?.message || 'Invalid mermaid syntax') })
-    return () => { cancelled = true }
-  }, [source])
+      .render(renderId, source)
+      .then((r) => {
+        if (!cancelled) {
+          setSvg(r.svg)
+          setError(null)
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e?.message || 'Invalid mermaid syntax')
+        }
+      })
+
+    return () => {
+      cancelled = true
+      const el = document.getElementById(renderId)
+      if (el) el.remove()
+      const dEl = document.getElementById('d' + renderId)
+      if (dEl) dEl.remove()
+    }
+  }, [source, theme])
 
   function save() {
     updateAttributes({ source: draft })
     setEditing(false)
+  }
+
+  function handleEnlarge() {
+    if (!svg) return
+    window.dispatchEvent(
+      new CustomEvent('dx-mermaid-enlarge', {
+        detail: { svg, source },
+      }),
+    )
   }
 
   return (
@@ -65,40 +164,90 @@ function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
             rows={Math.max(4, draft.split('\n').length + 1)}
           />
           <div className="mermaid-actions">
-            <button className="mmd-btn primary" onClick={save}>Render</button>
+            <button className="mmd-btn primary" onClick={save}>
+              Render
+            </button>
             {source.trim() && (
-              <button className="mmd-btn" onClick={() => { setDraft(source); setEditing(false) }}>Cancel</button>
+              <button
+                className="mmd-btn"
+                onClick={() => {
+                  setDraft(source)
+                  setEditing(false)
+                }}
+              >
+                Cancel
+              </button>
             )}
           </div>
         </div>
       ) : (
         <div
-          className="mermaid-preview"
-          onDoubleClick={() => {
-            if (svg) window.dispatchEvent(new CustomEvent('dx-mermaid-enlarge', { detail: svg }))
-          }}
-          title="Double-click to enlarge"
+          className={`mermaid-preview size-${size}`}
+          onDoubleClick={handleEnlarge}
+          title="Double-click to enlarge fullscreen"
         >
           {error ? (
             <div className="mermaid-error">⚠ {error}</div>
           ) : (
             <div className="mermaid-svg" dangerouslySetInnerHTML={{ __html: svg }} />
           )}
-          {svg && (
-            <button
-              className="mermaid-enlarge-btn"
-              title="Enlarge"
-              onClick={() => window.dispatchEvent(new CustomEvent('dx-mermaid-enlarge', { detail: svg }))}
-            >
-              ⤢
-            </button>
-          )}
+
           {canEdit && (
-            <>
-              <span className="mermaid-drag" data-drag-handle title="Drag to move" contentEditable={false}>⠿</span>
-              <button className="mermaid-edit-btn" onClick={() => setEditing(true)}>Edit</button>
-            </>
+            <span
+              className="mermaid-drag"
+              data-drag-handle
+              title="Drag to move diagram"
+              contentEditable={false}
+            >
+              ⠿
+            </span>
           )}
+
+          {/* Top-right Floating Action Toolbar */}
+          <div className="mermaid-top-toolbar">
+            {canEdit && (
+              <div className="mermaid-size-switcher" title="Diagram display size">
+                <button
+                  type="button"
+                  className={`mermaid-size-btn ${size === 'small' ? 'is-active' : ''}`}
+                  onClick={() => updateAttributes({ size: 'small' })}
+                  title="Small (compact)"
+                >
+                  Small
+                </button>
+                <button
+                  type="button"
+                  className={`mermaid-size-btn ${size === 'medium' ? 'is-active' : ''}`}
+                  onClick={() => updateAttributes({ size: 'medium' })}
+                  title="Medium (standard)"
+                >
+                  Medium
+                </button>
+              </div>
+            )}
+
+            {svg && (
+              <button
+                type="button"
+                className="mermaid-tool-btn"
+                title="Fullscreen view & zoom"
+                onClick={handleEnlarge}
+              >
+                ⤢ Enlarge
+              </button>
+            )}
+
+            {canEdit && (
+              <button
+                type="button"
+                className="mermaid-tool-btn primary"
+                title="Edit diagram syntax"
+                onClick={() => setEditing(true)}
+              >
+                ✎ Edit
+              </button>
+            )}
+          </div>
         </div>
       )}
     </NodeViewWrapper>
@@ -118,6 +267,11 @@ export const MermaidNode = Node.create({
         parseHTML: (el) => el.getAttribute('data-source') || '',
         renderHTML: (attrs) => ({ 'data-source': attrs.source }),
       },
+      size: {
+        default: 'medium',
+        parseHTML: (el) => (el.getAttribute('data-size') as MermaidSize) || 'medium',
+        renderHTML: (attrs) => ({ 'data-size': attrs.size || 'medium' }),
+      },
     }
   },
 
@@ -136,9 +290,12 @@ export const MermaidNode = Node.create({
   addCommands() {
     return {
       insertMermaid:
-        (source?: string) =>
+        (source?: string, size: MermaidSize = 'medium') =>
         ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { source: source ?? DEFAULT_SRC } }),
+          commands.insertContent({
+            type: this.name,
+            attrs: { source: source ?? DEFAULT_SRC, size },
+          }),
     }
   },
 })
