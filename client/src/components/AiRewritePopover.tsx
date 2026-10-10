@@ -55,6 +55,7 @@ export default function AiRewritePopover({
       })
       setResult(out)
     } catch (err: unknown) {
+      setResult('')
       setError(err instanceof Error ? err.message : 'Transformation failed')
     } finally {
       setLoading(false)
@@ -75,6 +76,16 @@ export default function AiRewritePopover({
   const handleRegenerate = () => {
     runTransform(mode, customPrompt)
   }
+
+  const isQuotaError = Boolean(
+    error &&
+      (error.toLowerCase().includes('quota') ||
+        error.toLowerCase().includes('rate limit') ||
+        error.toLowerCase().includes('resource_exhausted') ||
+        error.toLowerCase().includes('exceeded your current quota'))
+  )
+
+  const canApply = !loading && !error && !!result && !result.startsWith('⚠️')
 
   return (
     <div
@@ -149,14 +160,43 @@ export default function AiRewritePopover({
       </div>
 
       {/* Output Content */}
-      <div className={`ai-output-box ${loading ? 'is-loading' : ''}`}>
+      <div className={`ai-output-box ${loading ? 'is-loading' : ''} ${error ? 'has-error' : ''}`}>
         {loading ? (
           <div className="ai-shimmer-container">
             <div className="ai-shimmer-line" />
             <div className="ai-shimmer-text">Refining with AI…</div>
           </div>
         ) : error ? (
-          <div className="ai-error-text">⚠️ {error}</div>
+          <div className="ai-error-banner" role="alert">
+            <div className="ai-error-banner-header">
+              <span className="ai-error-banner-icon">⚠️</span>
+              <span className="ai-error-banner-title">
+                {isQuotaError ? 'API Quota / Rate Limit Exceeded' : 'AI Service Error'}
+              </span>
+            </div>
+            <div className="ai-error-banner-body">{error}</div>
+            <div className="ai-error-banner-hint">
+              {isQuotaError
+                ? 'Free tier quota exhausted for this model. Switch to another model or provider in Settings.'
+                : 'Please check your API key, connection, or switch model in Settings.'}
+            </div>
+            <div className="ai-error-banner-actions">
+              <button
+                type="button"
+                className="ai-error-action-btn primary"
+                onClick={onOpenSettings}
+              >
+                ⚙️ Switch Model or Key
+              </button>
+              <button
+                type="button"
+                className="ai-error-action-btn secondary"
+                onClick={handleRegenerate}
+              >
+                ↻ Retry
+              </button>
+            </div>
+          </div>
         ) : result.startsWith('⚠️') ? (
           <div className="ai-warning-box">
             <div className="ai-warning-text">{result}</div>
@@ -196,18 +236,18 @@ export default function AiRewritePopover({
           <button
             type="button"
             className="ai-pop-btn-secondary"
-            onClick={() => onInsertBelow(result, mode)}
-            disabled={loading || !result || result.startsWith('⚠️')}
-            title="Insert generated version below"
+            onClick={() => canApply && onInsertBelow(result, mode)}
+            disabled={!canApply}
+            title={error ? 'Action disabled: API error occurred' : 'Insert generated version below'}
           >
             ⬇ Insert Below
           </button>
           <button
             type="button"
             className="ai-pop-btn-primary"
-            onClick={() => onReplace(result, mode)}
-            disabled={loading || !result || result.startsWith('⚠️')}
-            title="Replace selected text on behalf of user"
+            onClick={() => canApply && onReplace(result, mode)}
+            disabled={!canApply}
+            title={error ? 'Action disabled: API error occurred' : 'Replace selected text on behalf of user'}
           >
             ✓ Replace Selection
           </button>

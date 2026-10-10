@@ -560,3 +560,47 @@ body {
 [data-theme="dark"] .ai-warning-btn:hover {
   background: #4d380c;
 }
+
+/* Dark mode error banner */
+[data-theme="dark"] .ai-output-box.has-error {
+  background: #200f13;
+  border-color: #671e28;
+}
+
+[data-theme="dark"] .ai-error-banner {
+  background: #200f13;
+}
+
+[data-theme="dark"] .ai-error-banner-title {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .ai-error-banner-body {
+  background: #14080a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .ai-error-banner-hint {
+  color: #f87171;
+}
+
+[data-theme="dark"] .ai-error-action-btn.primary {
+  background: #dc2626;
+  border-color: #b91c1c;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ai-error-action-btn.primary:hover {
+  background: #ef4444;
+}
+
+[data-theme="dark"] .ai-error-action-btn.secondary {
+  background: #2e1318;
+  border-color: #842029;
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .ai-error-action-btn.secondary:hover {
+  background: #3e1920;
+}

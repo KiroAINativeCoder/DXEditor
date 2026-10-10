@@ -559,6 +559,70 @@
       gap: 8px;
     }
 
+    .btn-action:disabled,
+    .btn-primary:disabled {
+      opacity: 0.42;
+      cursor: not-allowed !important;
+      pointer-events: none;
+      transform: none;
+      box-shadow: none;
+      filter: grayscale(0.6);
+    }
+
+    .output-card.has-error {
+      background: #fef2f2;
+      border-color: #fca5a5;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .ai-error-banner {
+      padding: 14px 16px;
+      background: #fef2f2;
+      border-radius: var(--radius-md);
+    }
+    .ai-error-banner-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .ai-error-banner-icon {
+      font-size: 16px;
+    }
+    .ai-error-banner-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #991b1b;
+      letter-spacing: -0.2px;
+    }
+    .ai-error-banner-body {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #b91c1c;
+      background: #ffffff;
+      border: 1px solid #fecaca;
+      border-radius: 7px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      max-height: 110px;
+      overflow-y: auto;
+      word-break: break-word;
+    }
+    .ai-error-banner-hint {
+      font-size: 11.5px;
+      color: #7f1d1d;
+      margin-bottom: 12px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+    .ai-error-banner-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
     /* Modern Settings Modal */
     .modal-overlay {
       position: fixed;
@@ -897,8 +961,8 @@
     <div class="popover-actions">
       <button class="btn-action" onclick="closePopover()">Discard</button>
       <div class="actions-right">
-        <button class="btn-action" onclick="insertBelow()" title="Insert crispified version right below">⬇ Insert Below</button>
-        <button class="btn-primary" onclick="replaceSelection()" title="Replace selected text on behalf of user">✓ Replace Selection</button>
+        <button class="btn-action" id="btnInsertBelow" onclick="insertBelow()" title="Insert crispified version right below">⬇ Insert Below</button>
+        <button class="btn-primary" id="btnReplaceSelection" onclick="replaceSelection()" title="Replace selected text on behalf of user">✓ Replace Selection</button>
       </div>
     </div>
   </div>
@@ -1237,6 +1301,12 @@
 
     // Dispatch to API or realistic simulation
     async function triggerAI() {
+      isErrorState = false;
+      const btnReplace = document.getElementById('btnReplaceSelection');
+      const btnInsert = document.getElementById('btnInsertBelow');
+      if (btnReplace) { btnReplace.disabled = true; btnReplace.title = "Refining with AI..."; }
+      if (btnInsert) { btnInsert.disabled = true; btnInsert.title = "Refining with AI..."; }
+
       resultBox.className = 'output-card loading';
       resultBox.innerHTML = `
         <div class="shimmer-bar"></div>
@@ -1383,9 +1453,7 @@
 
           renderResult(output);
         } catch (err) {
-          resultBox.className = 'output-card';
-          resultBox.innerHTML = `<div style="color: var(--danger); font-size: 13px;"><strong>${PROVIDER_CONFIG[provider]?.name || 'Provider'} Error:</strong> ${err.message}<br><small style="color: var(--text-muted)">Displaying simulation preview instead.</small></div>`;
-          setTimeout(() => fallbackSimulation(customInstruction), 1400);
+          showErrorBanner(err.message, provider);
         }
       } else {
         setTimeout(() => fallbackSimulation(customInstruction), 500);
@@ -1503,9 +1571,72 @@
       renderResult(outputHtml, outputText);
     }
 
+    function showErrorBanner(message, provider) {
+      isErrorState = true;
+      currentGeneratedHtml = '';
+      currentGeneratedText = '';
+
+      const btnReplace = document.getElementById('btnReplaceSelection');
+      const btnInsert = document.getElementById('btnInsertBelow');
+      if (btnReplace) {
+        btnReplace.disabled = true;
+        btnReplace.title = 'Action disabled: API error occurred';
+      }
+      if (btnInsert) {
+        btnInsert.disabled = true;
+        btnInsert.title = 'Action disabled: API error occurred';
+      }
+
+      const isQuota = Boolean(
+        message.toLowerCase().includes('quota') ||
+        message.toLowerCase().includes('rate limit') ||
+        message.toLowerCase().includes('resource_exhausted') ||
+        message.toLowerCase().includes('exceeded your current quota')
+      );
+
+      resultBox.className = 'output-card has-error';
+      resultBox.innerHTML = `
+        <div class="ai-error-banner" role="alert">
+          <div class="ai-error-banner-header">
+            <span class="ai-error-banner-icon">⚠️</span>
+            <span class="ai-error-banner-title">${isQuota ? 'API Quota / Rate Limit Exceeded' : (PROVIDER_CONFIG[provider]?.name || 'AI Provider') + ' Error'}</span>
+          </div>
+          <div class="ai-error-banner-body">${escapeHtml(message)}</div>
+          <div class="ai-error-banner-hint">${isQuota ? 'Free tier quota exhausted for this model. Switch to another model or provider in Settings.' : 'Please check your API key, connection, or switch model in Settings.'}</div>
+          <div class="ai-error-banner-actions">
+            <button class="btn-action" style="background: #ef4444; color: white; border: none; font-size: 12px; font-weight: 600;" onclick="openSettings()">⚙️ Switch Model or Key</button>
+            <button class="btn-action" style="background: white; border-color: #fca5a5; color: #991b1b; font-size: 12px; font-weight: 500;" onclick="regenerateWithCustomPrompt()">↻ Retry</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function renderResult(html, textFallback) {
+      isErrorState = false;
       resultBox.className = 'output-card';
-      if (html.startsWith('⚠️')) {
+      const isWarning = html.startsWith('⚠️');
+
+      const btnReplace = document.getElementById('btnReplaceSelection');
+      const btnInsert = document.getElementById('btnInsertBelow');
+      if (btnReplace) {
+        btnReplace.disabled = isWarning;
+        btnReplace.title = isWarning ? 'Cannot replace text with warning' : 'Replace selected text on behalf of user';
+      }
+      if (btnInsert) {
+        btnInsert.disabled = isWarning;
+        btnInsert.title = isWarning ? 'Cannot insert warning' : 'Insert crispified version right below';
+      }
+
+      if (isWarning) {
         resultBox.innerHTML = `
           <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; color: #92400e; font-size: 13px; line-height: 1.5;">
             <div style="font-weight: 600; margin-bottom: 8px;">${html}</div>
@@ -1524,7 +1655,8 @@
 
     // Apply Changes on Behalf of User
     function replaceSelection() {
-      if (!currentSelection.range) return;
+      if (isErrorState || !currentSelection.range || !currentGeneratedText && !currentGeneratedHtml) return;
+      if (currentGeneratedHtml.startsWith('⚠️')) return;
 
       const sel = window.getSelection();
       sel.removeAllRanges();
@@ -1549,7 +1681,8 @@
     }
 
     function insertBelow() {
-      if (!currentSelection.range) return;
+      if (isErrorState || !currentSelection.range || !currentGeneratedText && !currentGeneratedHtml) return;
+      if (currentGeneratedHtml.startsWith('⚠️')) return;
 
       const block = currentSelection.range.startContainer.parentElement.closest('p, h2, ul, div') || editor;
       const newElem = document.createElement(currentMode === 'bullet' ? 'div' : 'p');
