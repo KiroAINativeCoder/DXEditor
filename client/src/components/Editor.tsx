@@ -30,6 +30,13 @@ import { type AiMode, sanitizeTableHtml, getAiConfig } from '../lib/ai'
 import ReviewBar from './ReviewBar'
 import { statusMeta, DOC_STATUSES } from '../lib/rfc'
 import { docToMarkdown, markdownToDoc } from '../lib/markdown'
+import {
+  type Folder,
+  getFolders,
+  getDocFolderId,
+  moveDocToFolder,
+  createFolder,
+} from '../lib/folders'
 import './Editor.css'
 
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
@@ -120,6 +127,34 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
   }
   // Bumped to force the review panel to reload reviewers/reviews.
   const [reviewRefresh, setReviewRefresh] = useState(0)
+
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(() => getDocFolderId(docId))
+  const [folders, setFolders] = useState<Folder[]>(() => getFolders())
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false)
+  const folderPickerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const update = () => {
+      setCurrentFolderId(getDocFolderId(docId))
+      setFolders(getFolders())
+    }
+    update()
+    window.addEventListener('dx:folders-updated', update)
+    return () => window.removeEventListener('dx:folders-updated', update)
+  }, [docId])
+
+  useEffect(() => {
+    if (!folderPickerOpen) return
+    const onClick = (e: MouseEvent) => {
+      if (folderPickerRef.current && !folderPickerRef.current.contains(e.target as Node)) {
+        setFolderPickerOpen(false)
+      }
+    }
+    window.addEventListener('mousedown', onClick)
+    return () => window.removeEventListener('mousedown', onClick)
+  }, [folderPickerOpen])
+
+  const currentFolder = folders.find((f) => f.id === currentFolderId)
 
   // --- Versioning: capture/apply the live Yjs state as a base64 update. ---
   function snapshotUpdate(): string | null {
@@ -380,14 +415,76 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
       />
       <div className="editor-topbar">
         <div className="title-block">
-          <input
-            className="doc-title-input"
-            value={title}
-            placeholder="Untitled document"
-            readOnly
-            title="The title follows the first line of the document"
-            aria-label="Document title (from first line)"
-          />
+          <div className="doc-title-row">
+            <input
+              className="doc-title-input"
+              value={title}
+              placeholder="Untitled document"
+              readOnly
+              title="The title follows the first line of the document"
+              aria-label="Document title (from first line)"
+            />
+            <div className="doc-folder-chip-container" ref={folderPickerRef}>
+              <button
+                type="button"
+                className="doc-folder-chip"
+                onClick={() => setFolderPickerOpen((o) => !o)}
+                title="Organize into folder"
+              >
+                <span className="dfc-icon">📁</span>
+                <span className="dfc-name">{currentFolder ? currentFolder.name : 'Unfiled'}</span>
+                <span className="dfc-arrow">▾</span>
+              </button>
+
+              {folderPickerOpen && (
+                <div className="doc-folder-dropdown">
+                  <div className="dfd-header">Organize into Folder</div>
+                  <button
+                    type="button"
+                    className={`dfd-item${!currentFolderId ? ' is-active' : ''}`}
+                    onClick={() => {
+                      moveDocToFolder(docId, null)
+                      setFolderPickerOpen(false)
+                    }}
+                  >
+                    <span className="dfd-item-icon">📄</span>
+                    <span className="dfd-item-name">Unfiled</span>
+                    {!currentFolderId && <span className="dfd-item-check">✓</span>}
+                  </button>
+                  {folders.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      className={`dfd-item${currentFolderId === f.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        moveDocToFolder(docId, f.id)
+                        setFolderPickerOpen(false)
+                      }}
+                    >
+                      <span className="dfd-item-icon">📁</span>
+                      <span className="dfd-item-name">{f.name}</span>
+                      {currentFolderId === f.id && <span className="dfd-item-check">✓</span>}
+                    </button>
+                  ))}
+                  <div className="dfd-divider" />
+                  <button
+                    type="button"
+                    className="dfd-new-btn"
+                    onClick={() => {
+                      const name = window.prompt('New folder name:')
+                      if (name && name.trim()) {
+                        const newF = createFolder(name.trim())
+                        moveDocToFolder(docId, newF.id)
+                        setFolderPickerOpen(false)
+                      }
+                    }}
+                  >
+                    + Create new folder…
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
           <div className="doc-menu-row" role="menubar" aria-label="Document menus">
             <Menu
               label="Document"
