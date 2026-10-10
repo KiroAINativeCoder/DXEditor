@@ -157,7 +157,6 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
 
   const [showComments, setShowComments] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
-  const [globalAiSettingsOpen, setGlobalAiSettingsOpen] = useState(false)
   const [commentRefresh, setCommentRefresh] = useState(0)
   // Document font family (Quip-style). Persisted per-doc in localStorage; the
   // choice is view-local (not synced to collaborators) for this first version.
@@ -494,21 +493,8 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
           >
             💬 Comments
           </button>
-          <button
-            className="comments-btn"
-            onClick={() => setGlobalAiSettingsOpen(true)}
-            title="AI Model & Key Settings"
-            style={{ color: '#7c3aed' }}
-          >
-            ✨ AI Settings
-          </button>
         </div>
       </div>
-
-      <AiSettingsModal
-        isOpen={globalAiSettingsOpen}
-        onClose={() => setGlobalAiSettingsOpen(false)}
-      />
 
       <div className="editor-with-panel">
         {conn ? (
@@ -525,6 +511,11 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
             onThreadCreated={() => {
               setCommentRefresh((k) => k + 1)
               setShowComments(true)
+            }}
+            onOpenCommentsAt={(commentId) => {
+              setShowComments(true)
+              setCommentRefresh((k) => k + 1)
+              setFocusAnchor(commentId) // scrolls/flashes the thread in the panel
             }}
           />
         ) : (
@@ -581,6 +572,7 @@ function CollabEditor({
   onChangeFont,
   focusAnchor,
   onThreadCreated,
+  onOpenCommentsAt,
   onEditorReady,
 }: {
   docId: string
@@ -592,6 +584,7 @@ function CollabEditor({
   onChangeFont: (font: FontKey) => void
   focusAnchor: string | null
   onThreadCreated: () => void
+  onOpenCommentsAt?: (commentId: string) => void
   onEditorReady?: (editor: TiptapEditor | null) => void
 }) {
   // A floating "Comment" button shown over the current text selection.
@@ -779,6 +772,8 @@ function CollabEditor({
     { top: number; left: number; commentId: string; thread: ThreadT | null } | null
   >(null)
   const [popReply, setPopReply] = useState('')
+  // Shared guard so a comment or reply can't be inserted twice by a double-fire.
+  const submittingRef = useRef(false)
 
   const loadPopoverThread = useCallback(
     async (commentId: string) => {
@@ -798,41 +793,33 @@ function CollabEditor({
     if (!scroll) return
     const onClick = async (e: Event) => {
       const target = e.target as HTMLElement
-      // Ignore clicks inside the popover itself.
-      if (target.closest('.comment-popover')) return
       const mark = target.closest<HTMLElement>('[data-comment-id]')
-      if (!mark) {
-        setPopover(null)
-        return
-      }
+      if (!mark) return
       const commentId = mark.getAttribute('data-comment-id')!
-      const rect = mark.getBoundingClientRect()
-      const scrollRect = scroll.getBoundingClientRect()
-      setPopReply('')
-      // Position just below the clicked mark, relative to the scroll container.
-      setPopover({
-        top: rect.bottom - scrollRect.top + scroll.scrollTop + 6,
-        left: rect.left - scrollRect.left + scroll.scrollLeft,
-        commentId,
-        thread: null,
-      })
-      // Also surface the thread in the side panel (shows resolved too).
-      onThreadCreated()
-      loadPopoverThread(commentId)
+      // Clicking commented text opens the SIDE PANEL and focuses that thread —
+      // we no longer also show a separate floating popover (that produced two
+      // overlapping comment UIs for the same thread).
+      onOpenCommentsAt?.(commentId)
     }
     scroll.addEventListener('click', onClick)
     return () => scroll.removeEventListener('click', onClick)
-  }, [docId, loadPopoverThread, onThreadCreated])
+  }, [docId, onOpenCommentsAt])
 
   // Add a reply to the thread shown in the popover. Reopens it if resolved so
   // it reappears in the side panel, then refreshes both views.
   const addPopoverReply = useCallback(async () => {
     if (!popover || !popReply.trim()) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     const parentId = popover.commentId
-    await comments.add(docId, popReply.trim(), { parentId })
-    setPopReply('')
-    onThreadCreated()
-    loadPopoverThread(parentId)
+    try {
+      await comments.add(docId, popReply.trim(), { parentId })
+      setPopReply('')
+      onThreadCreated()
+      loadPopoverThread(parentId)
+    } finally {
+      submittingRef.current = false
+    }
   }, [popover, popReply, docId, onThreadCreated, loadPopoverThread])
 
   // Archive = resolve (one-way): mark resolved, remove the document highlight.
@@ -862,14 +849,22 @@ function CollabEditor({
     setBubble(null)
   }, [editor, bubble])
 
+  // Guard against double-submit (Enter + click, or a fast double press) which
+  // was inserting the same comment/reply twice as two separate DB rows.
   const submitComment = useCallback(async () => {
     if (!editor || !composer || !composer.text.trim()) return
-    // Create the thread first to get a stable id, then anchor the mark to it so
-    // the DB row and the highlighted span share one key.
-    const created = await comments.add(docId, composer.text.trim(), { quote: composer.quote })
-    editor.chain().focus().setComment(created.id).run()
-    setComposer(null)
-    onThreadCreated()
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      // Create the thread first to get a stable id, then anchor the mark to it
+      // so the DB row and the highlighted span share one key.
+      const created = await comments.add(docId, composer.text.trim(), { quote: composer.quote })
+      editor.chain().focus().setComment(created.id).run()
+      setComposer(null)
+      onThreadCreated()
+    } finally {
+      submittingRef.current = false
+    }
   }, [editor, composer, docId, onThreadCreated])
 
   // Floating AI rewrite popover state
