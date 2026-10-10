@@ -62,6 +62,17 @@ export const auth = {
   signUp: async (email: string, password: string, name?: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw new ApiError(400, error.message)
+
+    // Anti-enumeration: when the email is ALREADY registered, Supabase returns a
+    // fake success — data.user is set but data.user.identities is EMPTY and there
+    // is no session. Detect that and tell the user to log in, instead of falsely
+    // claiming a confirmation email was sent (the old `!data.session` check
+    // treated this identically to a genuine new signup).
+    const identities = data.user?.identities ?? []
+    if (data.user && identities.length === 0) {
+      throw new ApiError(409, 'An account with this email already exists. Please log in instead.')
+    }
+
     if (name) localStorage.setItem('dx_pending_name', name)
     const needsConfirmation = !data.session
     if (!needsConfirmation) void sync(name) // best-effort, non-blocking
