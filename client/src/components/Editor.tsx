@@ -1039,16 +1039,7 @@ function CollabEditor({
             onClick={openComposer}
             title="Add a comment"
           >
-            💬 Comment
-          </button>
-          <div className="ai-bubble-divider" />
-          <button
-            type="button"
-            className="ai-bubble-btn ai-bubble-btn--glow"
-            onClick={() => openAiPopover('sentence')}
-            title="AI Buddy"
-          >
-            AI Buddy
+            Comment
           </button>
           <div className="ai-bubble-divider" />
           <button
@@ -1057,7 +1048,7 @@ function CollabEditor({
             onClick={() => openAiPopover('sentence')}
             title="Crispify into concise sentence(s)"
           >
-            ⚡ Crispify
+            Crispify
           </button>
           <button
             type="button"
@@ -1065,7 +1056,7 @@ function CollabEditor({
             onClick={() => openAiPopover('bullet')}
             title="Convert into bullet points"
           >
-            📌 Bulletize
+            Bulletize
           </button>
           <button
             type="button"
@@ -1073,7 +1064,7 @@ function CollabEditor({
             onClick={() => openAiPopover('table')}
             title="Auto-tabularize data points into rows & columns"
           >
-            📊 Tabularize
+            Tabularize
           </button>
         </div>
       )}

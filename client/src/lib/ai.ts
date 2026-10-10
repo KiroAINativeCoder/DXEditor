@@ -214,29 +214,46 @@ export async function transformText(params: {
   if (isLive) {
     if (provider === 'gemini') {
       const callGemini = async (targetModel: string) => {
-        return fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${key}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              contents: [{ parts: [{ text: userContent }] }],
-              generationConfig: { temperature: mode === 'table' ? 0.2 : 0.3 },
-            }),
-          },
-        )
+        // Guard against a hung request: without a timeout a stalled fetch leaves
+        // the popover stuck on "Refining with AI…" forever (no reject, no finally).
+        const ctrl = new AbortController()
+        const timer = setTimeout(() => ctrl.abort(), 30_000)
+        try {
+          return await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${key}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                system_instruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ parts: [{ text: userContent }] }],
+                generationConfig: { temperature: mode === 'table' ? 0.2 : 0.3 },
+              }),
+              signal: ctrl.signal,
+            },
+          )
+        } finally {
+          clearTimeout(timer)
+        }
       }
 
-      let res = await callGemini(model)
-      // Auto-fallback to a resilient model if a 503 high-demand spike occurs
-      if (res.status === 503 && model !== 'gemini-2.0-flash') {
-        res = await callGemini('gemini-2.0-flash')
+      let res: Response
+      try {
+        res = await callGemini(model)
+        // Auto-fallback to a resilient live model on a 503 high-demand spike.
+        if (res.status === 503 && model !== 'gemini-flash-latest') {
+          res = await callGemini('gemini-flash-latest')
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') {
+          throw new Error('Gemini request timed out after 30s — check your API key and network, then retry.')
+        }
+        throw e
       }
 
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error?.message || 'Gemini API failed')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error?.message || `Gemini API failed (${res.status})`)
       }
       const data = await res.json()
       const out = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
