@@ -172,7 +172,7 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
     })
   const openComments = () => {
     setShowVersions(false)
-    openComments()
+    setShowComments(true)
   }
   const [commentRefresh, setCommentRefresh] = useState(0)
   // Document font family (Quip-style). Persisted per-doc in localStorage; the
