@@ -53,6 +53,17 @@ export default function AiRewritePopover({
         contextAfter,
         customInstruction: promptText || undefined,
       })
+      // Guard against a no-op: the model returned text identical to the input.
+      // For sentence mode this means nothing was changed, so do not present it
+      // as a successful transform the user can "Replace" with identical text.
+      const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+      if (targetMode === 'sentence' && norm(out) === norm(selectedText)) {
+        setResult('')
+        setError(
+          'The AI returned the same text unchanged — there was nothing to improve in the selection (it may be too short or not meaningful text). Try selecting a fuller sentence, or add an instruction.',
+        )
+        return
+      }
       setResult(out)
     } catch (err: unknown) {
       setResult('')

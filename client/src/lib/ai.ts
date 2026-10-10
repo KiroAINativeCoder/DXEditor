@@ -42,8 +42,8 @@ export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
     tagColor: '#db2777',
     icon: '✨',
     models: [
-      { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: '⚡ Ultra Fast (Latest)' },
-      { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite', badge: '⚡ Resilient & Fast' },
+      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', badge: '⚡ Ultra Fast' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: '⚡ Fast & Capable' },
       { id: 'gemini-flash-latest', label: 'Gemini Flash Latest', badge: '⚡ Auto-Updating' },
       { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: '🧠 Deep Reasoning' },
     ],
@@ -143,18 +143,21 @@ export function getAiConfig(): {
   let model =
     localStorage.getItem(`dx_model_${provider}`) || PROVIDERS[provider].models[0].id
 
-  // Auto-migrate legacy/deprecated Gemini models
-  if (
-    provider === 'gemini' &&
-    (model === 'gemini-2.0-flash' ||
-      model === 'gemini-1.5-flash' ||
-      model === 'gemini-1.5-pro')
-  ) {
-    model = 'gemini-3.8-flash'
-    try {
-      localStorage.setItem('dx_model_gemini', model)
-    } catch {
-      // ignore
+  // Migrate any stored deprecated/invalid Gemini model id to a real API model.
+  if (provider === 'gemini') {
+    const validGemini = new Set([
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-flash-latest',
+      'gemini-2.5-pro',
+    ])
+    if (!validGemini.has(model)) {
+      model = 'gemini-2.0-flash'
+      try {
+        localStorage.setItem('dx_model_gemini', model)
+      } catch {
+        // ignore
+      }
     }
   }
 
@@ -227,9 +230,9 @@ export async function transformText(params: {
       }
 
       let res = await callGemini(model)
-      // Auto-fallback to resilient model if 503 high demand spike occurs
-      if (res.status === 503 && model !== 'gemini-3.5-flash-lite') {
-        res = await callGemini('gemini-3.5-flash-lite')
+      // Auto-fallback to a resilient model if a 503 high-demand spike occurs
+      if (res.status === 503 && model !== 'gemini-2.0-flash') {
+        res = await callGemini('gemini-2.0-flash')
       }
 
       if (!res.ok) {
