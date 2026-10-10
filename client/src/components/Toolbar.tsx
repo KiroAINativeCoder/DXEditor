@@ -150,6 +150,25 @@ export default function Toolbar({
           onClick={() => editor.chain().focus().setHorizontalRule().run()} />
       </div>
 
+      {editor.isActive('table') && (
+        <>
+          <span className="tb-sep" />
+          <div className="tb-group tb-table-controls">
+            <span className="tb-insert-label" style={{ fontWeight: 600 }}>Table:</span>
+            <Btn title="Add row below" label="+ Row"
+              onClick={() => editor.chain().focus().addRowAfter().run()} />
+            <Btn title="Delete current row" label="- Row"
+              onClick={() => editor.chain().focus().deleteRow().run()} />
+            <Btn title="Add column right" label="+ Col"
+              onClick={() => editor.chain().focus().addColumnAfter().run()} />
+            <Btn title="Delete current column" label="- Col"
+              onClick={() => editor.chain().focus().deleteColumn().run()} />
+            <Btn title="Delete table" label="🗑"
+              onClick={() => editor.chain().focus().deleteTable().run()} />
+          </div>
+        </>
+      )}
+
       {onOpenAi && (
         <>
           <span className="tb-sep" />

@@ -1334,7 +1334,7 @@
       } else if (currentMode === 'bullet') {
         systemPrompt = 'You are an expert editor. Convert the given text into crisp, clear, and well-structured bullet points while retaining all underlying information and key details without omission. If any statement is ambiguous, use the provided surrounding document context to resolve the ambiguity into precise meaning. Ensure logical progression and smooth flow between points. Eliminate all gibberish, filler words, redundancy, and unwanted text. Output ONLY an HTML unordered list (<ul><li>...</li></ul>) without markdown code fences, greetings, or commentary.';
       } else {
-        systemPrompt = 'You are an expert data analyst and editor. Your task is to evaluate the SELECTED TEXT and, if appropriate, convert its key data points into a clean, compact, perfectly fitted HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\n\nCRITICAL RULES:\n1. FEASIBILITY CHECK: First evaluate if the SELECTED TEXT genuinely contains multiple distinct data points, metrics, parameters, or structured facts suitable for a table. If the text is purely narrative prose, opinion, broad discussion, or an unstructured thought that cannot be meaningfully tabulated, DO NOT generate a table. Instead, return ONLY:\n⚠️ This content cannot be meaningfully tabularized as it does not contain distinct structured data points or metrics. Consider using Crispify or Bulletize instead.\n2. CONDENSE & COMPACT: Keep cell contents condensed into short phrases, numbers, and key terms. Never write long narrative paragraphs inside table cells so the table stays neat and compact without overflowing.\n3. COLUMN EFFICIENCY: Use between 2 to 4 concise column headers (e.g. "Item", "Owner", "Metric / Status", "Timeline") to guarantee the table fits standard document width without horizontal distortion.\n4. STRICT SCOPE: Tabularize ONLY data points from the SELECTED TEXT. Use the BEFORE CONTEXT and AFTER CONTEXT strictly for background interpretation.\n5. OUTPUT FORMAT: If generating a table, output ONLY the HTML table starting with <table> and ending with </table>. No markdown code fences, greetings, or explanations.';
+        systemPrompt = 'You are an expert data analyst and editor. Your task is to evaluate the SELECTED TEXT and, if appropriate, convert its key data points into a clean, compact, perfectly fitted HTML table (<table><thead><tr><th>...</th></tr></thead><tbody><tr><td>...</td></tr></tbody></table>).\n\nCRITICAL RULES:\n1. FEASIBILITY CHECK: First evaluate if the SELECTED TEXT genuinely contains multiple distinct data points, metrics, parameters, or structured facts suitable for a table. If the text is purely narrative prose, opinion, broad discussion, or an unstructured thought that cannot be meaningfully tabulated, DO NOT generate a table. Instead, return ONLY:\n⚠️ This content cannot be meaningfully tabularized as it does not contain distinct structured data points or metrics. Consider using Crispify or Bulletize instead.\n2. CONDENSE & COMPACT: Keep cell contents condensed into short phrases, numbers, and key terms. Never write long narrative paragraphs inside table cells so the table stays neat and compact without overflowing.\n3. COLUMN EFFICIENCY: Use between 2 to 4 concise column headers (e.g. "Item", "Owner", "Metric / Status", "Timeline") to guarantee the table fits standard document width without horizontal distortion.\n4. STRICT SCOPE: Tabularize ONLY data points from the SELECTED TEXT. Use the BEFORE CONTEXT and AFTER CONTEXT strictly for background interpretation.\n5. NO EMPTY ROWS OR GHOST ROWS: Absolutely DO NOT output any empty rows, blank trailing rows, or placeholder cells (e.g. <tr><td></td><td></td></tr> or cells with just spaces, dashes, or &nbsp;). Every row in <tbody> MUST contain substantive data directly from the text.\n6. OUTPUT FORMAT: If generating a table, output ONLY the HTML table starting with <table> and ending with </table>. No markdown code fences, greetings, or explanations.';
       }
 
       const userContent =
@@ -1449,6 +1449,9 @@
 
           if (output.startsWith('```')) {
             output = output.replace(/^```(?:html)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
+          }
+          if (output.includes('<table')) {
+            output = sanitizeTableHtml(output);
           }
 
           renderResult(output);
@@ -1568,7 +1571,44 @@
         outputHtml += `<div style="margin-top: 8px; font-size: 11px; color: var(--purple); font-weight: 500;">✓ Adjusted for instruction: "${customInstruction}"</div>`;
       }
 
+      if (outputHtml.includes('<table')) {
+        outputHtml = sanitizeTableHtml(outputHtml);
+      }
+
       renderResult(outputHtml, outputText);
+    }
+
+    function sanitizeTableHtml(rawHtml) {
+      if (!rawHtml || !rawHtml.includes('<table')) return rawHtml;
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(rawHtml, 'text/html');
+        const table = doc.querySelector('table');
+        if (!table) return rawHtml;
+
+        const allRows = table.querySelectorAll('tr');
+        allRows.forEach(row => {
+          const cells = row.querySelectorAll('th, td');
+          if (cells.length === 0) {
+            row.remove();
+            return;
+          }
+          const allEmpty = Array.from(cells).every(cell => {
+            const t = (cell.textContent || '').replace(/[\u00a0\s\r\n\t]/g, '').trim();
+            return t === '' || t === '-' || t === '—' || t === 'N/A' || t === 'n/a';
+          });
+          if (allEmpty) row.remove();
+        });
+
+        const tbodies = table.querySelectorAll('tbody');
+        tbodies.forEach(tbody => {
+          if (tbody.querySelectorAll('tr').length === 0) tbody.remove();
+        });
+
+        return table.outerHTML;
+      } catch {
+        return rawHtml;
+      }
     }
 
     function showErrorBanner(message, provider) {
@@ -1665,7 +1705,13 @@
       const span = document.createElement('span');
       span.className = 'doc-highlight';
 
-      if (currentMode === 'bullet' && currentGeneratedHtml.includes('<ul')) {
+      if (currentMode === 'table' && currentGeneratedHtml.includes('<table')) {
+        const tempDiv = document.createElement('div');
+        tempDiv.className = 'doc-highlight';
+        tempDiv.innerHTML = sanitizeTableHtml(currentGeneratedHtml);
+        currentSelection.range.deleteContents();
+        currentSelection.range.insertNode(tempDiv);
+      } else if (currentMode === 'bullet' && currentGeneratedHtml.includes('<ul')) {
         const tempDiv = document.createElement('div');
         tempDiv.className = 'doc-highlight';
         tempDiv.innerHTML = currentGeneratedHtml;
@@ -1684,10 +1730,11 @@
       if (isErrorState || !currentSelection.range || !currentGeneratedText && !currentGeneratedHtml) return;
       if (currentGeneratedHtml.startsWith('⚠️')) return;
 
-      const block = currentSelection.range.startContainer.parentElement.closest('p, h2, ul, div') || editor;
-      const newElem = document.createElement(currentMode === 'bullet' ? 'div' : 'p');
+      const block = currentSelection.range.startContainer.parentElement.closest('p, h2, ul, div, table') || editor;
+      const isTable = currentMode === 'table' && currentGeneratedHtml.includes('<table');
+      const newElem = document.createElement(currentMode === 'bullet' || isTable ? 'div' : 'p');
       newElem.className = 'doc-highlight';
-      newElem.innerHTML = currentGeneratedHtml;
+      newElem.innerHTML = isTable ? sanitizeTableHtml(currentGeneratedHtml) : currentGeneratedHtml;
 
       block.parentNode.insertBefore(newElem, block.nextSibling);
       closePopover();

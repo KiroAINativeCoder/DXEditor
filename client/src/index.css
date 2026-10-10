@@ -604,3 +604,17 @@ body {
 [data-theme="dark"] .ai-error-action-btn.secondary:hover {
   background: #3e1920;
 }
+
+/* Dark mode table resizing & controls */
+[data-theme="dark"] .editor-content .column-resize-handle {
+  background-color: #60a5fa;
+  box-shadow: 0 0 6px rgba(96, 165, 250, 0.5);
+}
+
+[data-theme="dark"] .editor-content .column-resize-dragging {
+  background-color: rgba(96, 165, 250, 0.15) !important;
+}
+
+[data-theme="dark"] .tb-table-controls .tb-insert-label {
+  color: #58a6ff !important;
+}

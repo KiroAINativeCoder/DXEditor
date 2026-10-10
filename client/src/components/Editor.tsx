@@ -25,7 +25,7 @@ import { accessToken } from '../lib/supabase'
 import { makeIdentity, type Identity } from '../lib/identity'
 import AiSettingsModal from './AiSettingsModal'
 import AiRewritePopover from './AiRewritePopover'
-import type { AiMode } from '../lib/ai'
+import { type AiMode, sanitizeTableHtml } from '../lib/ai'
 import './Editor.css'
 
 const COLLAB_URL = import.meta.env.VITE_COLLAB_URL ?? 'ws://localhost:4001'
@@ -443,7 +443,12 @@ function CollabEditor({
       Placeholder.configure({ placeholder: 'Start writing…' }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Table.configure({ resizable: true }),
+      Table.configure({
+        resizable: true,
+        handleWidth: 7,
+        cellMinWidth: 45,
+        lastColumnResizable: true,
+      }),
       TableRow,
       TableHeader,
       TableCell,
@@ -780,11 +785,14 @@ function CollabEditor({
     (newContent: string, _mode: AiMode) => {
       if (!editor || !aiPopover) return
       const { from, to } = aiPopover
+      const contentToInsert = newContent.includes('<table')
+        ? sanitizeTableHtml(newContent)
+        : newContent
       editor
         .chain()
         .focus()
         .deleteRange({ from, to })
-        .insertContent(newContent)
+        .insertContent(contentToInsert)
         .run()
       setAiPopover(null)
     },
@@ -795,12 +803,15 @@ function CollabEditor({
     (newContent: string, _mode: AiMode) => {
       if (!editor || !aiPopover) return
       const { to } = aiPopover
+      const contentToInsert = newContent.includes('<table')
+        ? sanitizeTableHtml(newContent)
+        : newContent
       editor
         .chain()
         .focus()
         .setTextSelection(to)
         .insertContent('<p></p>')
-        .insertContent(newContent)
+        .insertContent(contentToInsert)
         .run()
       setAiPopover(null)
     },

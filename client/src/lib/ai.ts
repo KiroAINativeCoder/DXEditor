@@ -75,10 +75,59 @@ export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
   },
 }
 
-function cleanAiFences(raw: string): string {
+export function sanitizeTableHtml(rawHtml: string): string {
+  if (!rawHtml || !rawHtml.includes('<table')) return rawHtml
+
+  try {
+    if (typeof DOMParser === 'undefined') return rawHtml
+
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(rawHtml, 'text/html')
+    const table = doc.querySelector('table')
+    if (!table) return rawHtml
+
+    // Remove any rows where all cells are empty, whitespace, &nbsp;, or filler dashes
+    const allRows = table.querySelectorAll('tr')
+    allRows.forEach((row) => {
+      const cells = row.querySelectorAll('th, td')
+      if (cells.length === 0) {
+        row.remove()
+        return
+      }
+
+      const allCellsEmpty = Array.from(cells).every((cell) => {
+        const text = (cell.textContent || '')
+          .replace(/[\u00a0\s\r\n\t]/g, '')
+          .trim()
+        return text === '' || text === '-' || text === '—' || text === 'N/A' || text === 'n/a'
+      })
+
+      if (allCellsEmpty) {
+        row.remove()
+      }
+    })
+
+    // Remove empty tbody elements if any
+    const tbodies = table.querySelectorAll('tbody')
+    tbodies.forEach((tbody) => {
+      if (tbody.querySelectorAll('tr').length === 0) {
+        tbody.remove()
+      }
+    })
+
+    return table.outerHTML
+  } catch {
+    return rawHtml
+  }
+}
+
+export function cleanAiFences(raw: string): string {
   let text = raw.trim()
   if (text.startsWith('```')) {
     text = text.replace(/^```(?:html)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim()
+  }
+  if (text.includes('<table')) {
+    text = sanitizeTableHtml(text)
   }
   return text
 }
@@ -147,7 +196,8 @@ export async function transformText(params: {
       '2. CONDENSE & COMPACT: Keep cell contents condensed into short phrases, numbers, and key terms. Never write long narrative paragraphs inside table cells so the table stays neat and compact without overflowing.\n' +
       '3. COLUMN EFFICIENCY: Use between 2 to 4 concise column headers (e.g. "Item", "Owner", "Metric / Status", "Timeline") to guarantee the table fits standard document width without horizontal distortion.\n' +
       '4. STRICT SCOPE: Tabularize ONLY data points from the SELECTED TEXT. Use the BEFORE CONTEXT and AFTER CONTEXT strictly for background interpretation (e.g. resolving pronouns, system names, or units).\n' +
-      '5. OUTPUT FORMAT: If generating a table, output ONLY the HTML table starting with <table> and ending with </table>. No markdown code fences, greetings, or explanations.'
+      '5. NO EMPTY ROWS OR GHOST ROWS: Absolutely DO NOT output any empty rows, blank trailing rows, or placeholder cells (e.g. <tr><td></td><td></td></tr> or cells with just spaces, dashes, or &nbsp;). Every row in <tbody> MUST contain substantive data directly from the text.\n' +
+      '6. OUTPUT FORMAT: If generating a table, output ONLY the HTML table starting with <table> and ending with </table>. No markdown code fences, greetings, or explanations.'
   }
 
   const userContent =
@@ -412,6 +462,10 @@ ${rows}
     if (mode === 'sentence') {
       result += ` (${instruction})`
     }
+  }
+
+  if (result.includes('<table')) {
+    result = sanitizeTableHtml(result)
   }
 
   return result

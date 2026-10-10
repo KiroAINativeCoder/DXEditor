@@ -536,7 +536,7 @@
 .editor-content ul[data-type='taskList'] li > label { margin-top: 0.25em; }
 .editor-content ul[data-type='taskList'] li > div { flex: 1; }
 
-/* Tables */
+/* Tables & Column Resizing */
 .editor-content .tableWrapper {
   overflow-x: auto;
   max-width: 100%;
@@ -548,8 +548,7 @@
   border-collapse: collapse;
   table-layout: fixed;
   width: 100%;
-  max-width: 100%;
-  margin: 1em 0;
+  margin: 0;
   border-radius: 8px;
   overflow: hidden;
   box-sizing: border-box;
@@ -562,8 +561,10 @@
   word-break: break-word;
   overflow-wrap: break-word;
   box-sizing: border-box;
+  position: relative; /* REQUIRED: makes column-resize-handle align with cell border */
   font-size: 13.5px;
   line-height: 1.45;
+  min-width: 40px;
 }
 .editor-content th {
   background: #f6f8fa;
@@ -574,12 +575,39 @@
 .editor-content tr:nth-child(even) td {
   background: rgba(0, 0, 0, 0.015);
 }
+
+/* TipTap / ProseMirror Table Column Resizing */
+.ProseMirror.resize-cursor,
+.editor-content.resize-cursor,
+.editor-content .ProseMirror.resize-cursor {
+  cursor: col-resize !important;
+}
+
+.editor-content .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  z-index: 25;
+  background-color: #3b82f6;
+  pointer-events: none;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.5);
+  transition: background-color 0.15s ease;
+}
+
+.editor-content .column-resize-dragging {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+}
+
 .editor-content .selectedCell::after {
   background: rgba(80, 130, 230, 0.12);
   content: '';
   inset: 0;
   position: absolute;
   pointer-events: none;
+  z-index: 2;
 }
 
 .mermaid-zoom-svg {
