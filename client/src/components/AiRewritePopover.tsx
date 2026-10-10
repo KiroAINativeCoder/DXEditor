@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   type AiMode,
   getAiConfig,
@@ -77,8 +77,27 @@ export default function AiRewritePopover({
     }
   }
 
+  const cardRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     runTransform(initialMode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Click outside the popover closes it (ignore clicks inside the AI settings modal).
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (cardRef.current && cardRef.current.contains(target)) return
+      if (
+        target instanceof Element &&
+        target.closest('.ai-modal-overlay')
+      )
+        return
+      onClose()
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    return () => document.removeEventListener('mousedown', onDocMouseDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -104,6 +123,7 @@ export default function AiRewritePopover({
 
   return (
     <div
+      ref={cardRef}
       className="ai-popover-card"
       style={{ top, left }}
       onMouseDown={(e) => e.stopPropagation()}

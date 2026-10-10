@@ -131,6 +131,16 @@
 .ai-card-icon {
   font-size: 14px;
 }
+.ai-provider-card.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f6f5f3;
+  pointer-events: auto;
+}
+.ai-provider-card.is-disabled:hover {
+  border-color: #e2e0db;
+  box-shadow: none;
+}
 .ai-card-tag {
   font-size: 9.5px;
   font-weight: 700;

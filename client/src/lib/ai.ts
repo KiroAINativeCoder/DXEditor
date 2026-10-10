@@ -1,4 +1,4 @@
-export type AiProvider = 'openrouter' | 'gemini' | 'deepseek' | 'openai'
+export type AiProvider = 'anthropic' | 'gemini' | 'deepseek' | 'openai'
 export type AiMode = 'sentence' | 'bullet' | 'table'
 
 export type ModelOption = {
@@ -15,23 +15,21 @@ export type ProviderConfig = {
   tagColor: string
   icon: string
   models: ModelOption[]
+  disabled?: boolean
 }
 
 export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
-  openrouter: {
-    name: 'OpenRouter',
-    placeholder: 'sk-or-v1-...',
-    hint: 'All-in-one gateway: 1 single key gives access to Claude 3.5, Gemini 2.0, DeepSeek V3/R1, GPT-4o, and Llama 3.3.',
-    tag: 'All-in-One',
-    tagColor: '#2563eb',
-    icon: '🌐',
+  anthropic: {
+    name: 'Anthropic Claude',
+    placeholder: 'sk-ant-...',
+    hint: 'Direct Anthropic API key from console.anthropic.com.',
+    tag: 'Direct API',
+    tagColor: '#d97757',
+    icon: '',
     models: [
-      { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet', badge: '⭐ Recommended' },
-      { id: 'google/gemini-2.0-flash-001', label: 'Gemini 2.0 Flash', badge: '⚡ Ultra Fast' },
-      { id: 'deepseek/deepseek-chat', label: 'DeepSeek V3', badge: '🔥 Popular' },
-      { id: 'deepseek/deepseek-r1', label: 'DeepSeek R1', badge: '🧠 Reasoning' },
-      { id: 'openai/gpt-4o', label: 'GPT-4o', badge: 'Flagship' },
-      { id: 'meta-llama/llama-3.3-70b-instruct', label: 'Llama 3.3 70B', badge: 'Open' },
+      { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', badge: 'Recommended' },
+      { id: 'claude-opus-4-1-20250805', label: 'Claude Opus 4.1', badge: 'Most Capable' },
+      { id: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', badge: 'Fast' },
     ],
   },
   gemini: {
@@ -39,25 +37,13 @@ export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
     placeholder: 'AIzaSy...',
     hint: 'Direct Google AI Studio API key (free tier available at aistudio.google.com).',
     tag: 'Direct API',
-    tagColor: '#db2777',
-    icon: '✨',
+    tagColor: '#2563eb',
+    icon: '',
     models: [
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', badge: '⚡ Ultra Fast' },
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: '⚡ Fast & Capable' },
-      { id: 'gemini-flash-latest', label: 'Gemini Flash Latest', badge: '⚡ Auto-Updating' },
-      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: '🧠 Deep Reasoning' },
-    ],
-  },
-  deepseek: {
-    name: 'DeepSeek Direct',
-    placeholder: 'sk-...',
-    hint: 'Direct DeepSeek API key from platform.deepseek.com.',
-    tag: 'Direct API',
-    tagColor: '#059669',
-    icon: '⚡',
-    models: [
-      { id: 'deepseek-chat', label: 'DeepSeek-V3', badge: '⚡ Fast & Crisp' },
-      { id: 'deepseek-reasoner', label: 'DeepSeek-R1', badge: '🧠 Deep Reasoner' },
+      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', badge: 'Ultra Fast' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', badge: 'Fast & Capable' },
+      { id: 'gemini-flash-latest', label: 'Gemini Flash Latest', badge: 'Auto-Updating' },
+      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', badge: 'Deep Reasoning' },
     ],
   },
   openai: {
@@ -66,11 +52,24 @@ export const PROVIDERS: Record<AiProvider, ProviderConfig> = {
     hint: 'Direct OpenAI API key from platform.openai.com.',
     tag: 'Direct API',
     tagColor: '#0f172a',
-    icon: '🤖',
+    icon: '',
     models: [
-      { id: 'gpt-4o', label: 'GPT-4o', badge: '⭐ Flagship' },
-      { id: 'gpt-4o-mini', label: 'GPT-4o Mini', badge: '⚡ Fast' },
-      { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', badge: 'Legacy' },
+      { id: 'gpt-4o', label: 'GPT-4o', badge: 'Flagship' },
+      { id: 'gpt-4o-mini', label: 'GPT-4o Mini', badge: 'Fast' },
+      { id: 'gpt-4.1', label: 'GPT-4.1', badge: 'Latest' },
+    ],
+  },
+  deepseek: {
+    name: 'DeepSeek Direct',
+    placeholder: 'sk-...',
+    hint: 'Coming soon.',
+    tag: 'Coming Soon',
+    tagColor: '#94a3b8',
+    icon: '',
+    disabled: true,
+    models: [
+      { id: 'deepseek-chat', label: 'DeepSeek-V3', badge: '' },
+      { id: 'deepseek-reasoner', label: 'DeepSeek-R1', badge: '' },
     ],
   },
 }
@@ -138,7 +137,7 @@ export function getAiConfig(): {
   model: string
   isLive: boolean
 } {
-  const provider = (localStorage.getItem('dx_ai_provider') as AiProvider) || 'openrouter'
+  const provider = (localStorage.getItem('dx_ai_provider') as AiProvider) || 'gemini'
   const key = (localStorage.getItem(`dx_key_${provider}`) || '').trim()
   let model =
     localStorage.getItem(`dx_model_${provider}`) || PROVIDERS[provider].models[0].id
@@ -292,32 +291,31 @@ export async function transformText(params: {
       if (out) return cleanAiFences(out)
       throw new Error('OpenAI returned an empty response')
     } else {
-      // OpenRouter universal
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      // Anthropic Claude (direct)
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
-          'HTTP-Referer': window.location.href,
-          'X-Title': 'DXEditor AI Rewrite',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
           model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent },
-          ],
+          max_tokens: 2048,
           temperature: mode === 'table' ? 0.2 : 0.3,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userContent }],
         }),
       })
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error?.message || 'OpenRouter API failed')
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error?.message || `Anthropic API failed (${res.status})`)
       }
       const data = await res.json()
-      const out = data.choices?.[0]?.message?.content?.trim()
+      const out = data.content?.[0]?.text?.trim()
       if (out) return cleanAiFences(out)
-      throw new Error('OpenRouter returned an empty response')
+      throw new Error('Anthropic returned an empty response')
     }
   }
 

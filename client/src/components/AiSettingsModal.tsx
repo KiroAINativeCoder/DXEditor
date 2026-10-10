@@ -24,6 +24,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
   if (!isOpen) return null
 
   const handleProviderSelect = (p: AiProvider) => {
+    if (PROVIDERS[p].disabled) return
     setProvider(p)
     const pCfg = PROVIDERS[p]
     setModel(pCfg.models[0].id)
@@ -63,7 +64,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
               return (
                 <div
                   key={pKey}
-                  className={`ai-provider-card ${isSelected ? 'is-selected' : ''}`}
+                  className={`ai-provider-card ${isSelected ? 'is-selected' : ''} ${p.disabled ? 'is-disabled' : ''}`}
                   onClick={() => handleProviderSelect(pKey)}
                 >
                   <div className="ai-card-top">
