@@ -193,14 +193,7 @@
   color: #1f2328;
 }
 .ai-bubble-btn--glow {
-  background: linear-gradient(135deg, #6366f1, #a855f7);
-  color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.35);
-}
-.ai-bubble-btn--glow:hover {
-  background: linear-gradient(135deg, #4f46e5, #9333ea);
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.55);
 }
 
 /* Night mode: dark bar */

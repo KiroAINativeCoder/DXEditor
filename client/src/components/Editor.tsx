@@ -157,6 +157,23 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
 
   const [showComments, setShowComments] = useState(false)
   const [showVersions, setShowVersions] = useState(false)
+  // Only one right-side panel open at a time: opening one closes the other.
+  const toggleComments = () =>
+    setShowComments((v) => {
+      const next = !v
+      if (next) setShowVersions(false)
+      return next
+    })
+  const toggleVersions = () =>
+    setShowVersions((v) => {
+      const next = !v
+      if (next) setShowComments(false)
+      return next
+    })
+  const openComments = () => {
+    setShowVersions(false)
+    openComments()
+  }
   const [commentRefresh, setCommentRefresh] = useState(0)
   // Document font family (Quip-style). Persisted per-doc in localStorage; the
   // choice is view-local (not synced to collaborators) for this first version.
@@ -389,8 +406,8 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
             <Menu
               label="View"
               items={[
-                { label: 'Comments', checked: showComments, onClick: () => setShowComments((v) => !v) },
-                { label: 'Version history', checked: showVersions, onClick: () => setShowVersions((v) => !v) },
+                { label: 'Comments', checked: showComments, onClick: () => toggleComments() },
+                { label: 'Version history', checked: showVersions, onClick: () => toggleVersions() },
               ]}
             />
             <Menu
@@ -481,14 +498,14 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
 
           <button
             className={`comments-btn${showVersions ? ' is-active' : ''}`}
-            onClick={() => setShowVersions((v) => !v)}
+            onClick={() => toggleVersions()}
             title="Version history"
           >
             🕑 Versions
           </button>
           <button
             className={`comments-btn${showComments ? ' is-active' : ''}`}
-            onClick={() => setShowComments((v) => !v)}
+            onClick={() => toggleComments()}
             title="Comments"
           >
             💬 Comments
@@ -510,10 +527,10 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
             onEditorReady={setEd}
             onThreadCreated={() => {
               setCommentRefresh((k) => k + 1)
-              setShowComments(true)
+              openComments()
             }}
             onOpenCommentsAt={(commentId) => {
-              setShowComments(true)
+              openComments()
               setCommentRefresh((k) => k + 1)
               setFocusAnchor(commentId) // scrolls/flashes the thread in the panel
             }}
