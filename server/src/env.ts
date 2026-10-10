@@ -2,3 +2,9 @@
 // any module that reads process.env at construction time (e.g. the Supabase
 // clients in server.ts / access.ts).
 import 'dotenv/config'
+import WebSocket from 'ws'
+
+if (typeof globalThis.WebSocket === 'undefined') {
+  // @ts-ignore
+  globalThis.WebSocket = WebSocket
+}

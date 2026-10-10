@@ -89,6 +89,23 @@
   gap: 8px;
   margin-left: 16px;
 }
+.theme-toggle-btn {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: all 0.18s ease;
+}
+.theme-toggle-btn:hover {
+  background: #e2e8f0;
+  transform: scale(1.05);
+}
 .user-email { font-size: 13px; color: #57606a; }
 
 .app-boot {
