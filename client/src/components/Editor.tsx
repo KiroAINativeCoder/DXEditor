@@ -186,6 +186,8 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
   }
   // Set by the panel; the editor reads it to scroll to/flash an anchor.
   const [focusAnchor, setFocusAnchor] = useState<string | null>(null)
+  // Thread id to auto-focus (open its reply box) when a comment is clicked.
+  const [focusThread, setFocusThread] = useState<string | null>(null)
   // The live Tiptap editor instance, lifted from CollabEditor so the menu bar
   // (Edit/Insert/Format) can drive it.
   const [ed, setEd] = useState<TiptapEditor | null>(null)
@@ -533,6 +535,10 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
               openComments()
               setCommentRefresh((k) => k + 1)
               setFocusAnchor(commentId) // scrolls/flashes the thread in the panel
+              // Reset first so clicking the SAME comment again re-triggers the
+              // panel's focus effect (identical state would otherwise be a no-op).
+              setFocusThread(null)
+              window.setTimeout(() => setFocusThread(commentId), 0)
             }}
           />
         ) : (
@@ -547,6 +553,7 @@ export default function Editor({ docId, initialTitle, initialStatus, role, curre
             canEdit={canEdit}
             currentUserId={currentUserId}
             refreshKey={commentRefresh}
+            focusThread={focusThread}
             onFocusAnchor={setFocusAnchor}
             onResolvedMark={(commentId, resolved) => {
               // Resolving removes the yellow highlight from the document (the

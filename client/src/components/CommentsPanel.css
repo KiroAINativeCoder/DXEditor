@@ -88,3 +88,11 @@
   cursor: pointer;
 }
 .comment-mark:hover { background: #ffe9a8; }
+
+.thread.is-flash {
+  animation: thread-flash 1.2s ease-out;
+}
+@keyframes thread-flash {
+  0% { background: rgba(37, 103, 244, 0.18); }
+  100% { background: transparent; }
+}
