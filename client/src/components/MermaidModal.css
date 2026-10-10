@@ -163,33 +163,25 @@
   overflow: auto;
   position: relative;
   background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  user-select: none;
-}
-
-.mermaid-modal-viewport.is-dragging {
-  cursor: grabbing;
+  padding: 32px;
+  display: block;
 }
 
 .mermaid-modal-canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  transition: transform 0.08s ease-out;
   min-width: 100%;
   min-height: 100%;
+  margin: 0 auto;
 }
 
 .mermaid-modal-svg {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: auto;
-  max-width: 90%;
+  margin: auto;
+  transition: width 0.15s ease;
 }
 
 /* Make inner SVG scalable and large */
@@ -198,7 +190,6 @@
   width: 100% !important;
   max-width: none !important;
   height: auto !important;
-  min-width: 450px;
 }
 
 /* Footer */

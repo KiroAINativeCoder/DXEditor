@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import mermaid from 'mermaid'
 import './MermaidModal.css'
 
@@ -22,12 +22,8 @@ function getAppTheme(): 'light' | 'dark' {
 export default function MermaidModal({ svg: initialSvg, source, onClose }: Props) {
   const [theme, setTheme] = useState<'light' | 'dark'>(getAppTheme)
   const [currentSvg, setCurrentSvg] = useState<string>(initialSvg)
-  const [zoom, setZoom] = useState<number>(100) // Percentage: 50% - 300%
-  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState<number>(100) // Percentage: 50% - 250%
   const [copied, setCopied] = useState(false)
-  const viewportRef = useRef<HTMLDivElement>(null)
 
   // Listen to theme changes while modal is open
   useEffect(() => {
@@ -99,67 +95,17 @@ export default function MermaidModal({ svg: initialSvg, source, onClose }: Props
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      else if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
-        e.preventDefault()
-        setZoom((z) => Math.min(300, z + 20))
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
-        e.preventDefault()
-        setZoom((z) => Math.max(40, z - 20))
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
-        e.preventDefault()
-        setZoom(100)
-        setPan({ x: 0, y: 0 })
-      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  // Wheel handler:
-  // Only zoom when Ctrl or Meta (Cmd) is held (or trackpad pinch).
-  // Normal wheel scroll pans up/down/left/right so the user can scroll through the diagram without it resizing!
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault()
-    if (e.ctrlKey || e.metaKey) {
-      // Intentional zoom
-      const delta = e.deltaY > 0 ? -10 : 10
-      setZoom((z) => Math.min(300, Math.max(40, z + delta)))
-    } else {
-      // Normal scroll pans smoothly without changing diagram size
-      setPan((p) => ({
-        x: p.x - (e.shiftKey ? e.deltaY : (e.deltaX || 0)),
-        y: p.y - (e.shiftKey ? 0 : e.deltaY),
-      }))
-    }
-  }, [])
-
-  // Drag to pan
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return
-    setIsDragging(true)
-    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return
-    setPan({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    })
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
   const resetZoom = () => {
     setZoom(100)
-    setPan({ x: 0, y: 0 })
   }
 
   const fitToScreen = () => {
-    setZoom(130)
-    setPan({ x: 0, y: 0 })
+    setZoom(120)
   }
 
   const copySvg = async () => {
@@ -192,7 +138,7 @@ export default function MermaidModal({ svg: initialSvg, source, onClose }: Props
             <button
               type="button"
               className="mm-tool-btn"
-              onClick={() => setZoom((z) => Math.max(40, z - 20))}
+              onClick={() => setZoom((z) => Math.max(50, z - 15))}
               title="Zoom out (−)"
             >
               −
@@ -208,7 +154,7 @@ export default function MermaidModal({ svg: initialSvg, source, onClose }: Props
             <button
               type="button"
               className="mm-tool-btn"
-              onClick={() => setZoom((z) => Math.min(300, z + 20))}
+              onClick={() => setZoom((z) => Math.min(250, z + 15))}
               title="Zoom in (+)"
             >
               +
@@ -226,7 +172,7 @@ export default function MermaidModal({ svg: initialSvg, source, onClose }: Props
               type="button"
               className="mm-action-btn"
               onClick={resetZoom}
-              title="Reset zoom & position"
+              title="Reset zoom"
             >
               100%
             </button>
@@ -253,33 +199,23 @@ export default function MermaidModal({ svg: initialSvg, source, onClose }: Props
           </div>
         </div>
 
-        {/* Viewport Canvas */}
-        <div
-          ref={viewportRef}
-          className={`mermaid-modal-viewport ${isDragging ? 'is-dragging' : ''}`}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
-          <div
-            className="mermaid-modal-canvas"
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100})`,
-              transformOrigin: 'center center',
-            }}
-          >
+        {/* Viewport Canvas with Native Scrolling */}
+        <div className="mermaid-modal-viewport">
+          <div className="mermaid-modal-canvas">
             <div
               className="mermaid-modal-svg"
+              style={{
+                width: `${Math.round(850 * (zoom / 100))}px`,
+                maxWidth: '100%',
+              }}
               dangerouslySetInnerHTML={{ __html: currentSvg }}
             />
           </div>
         </div>
 
-        {/* Footer Hint */}
+        {/* Footer */}
         <div className="mermaid-modal-footer">
-          <span>Scroll wheel / trackpad to pan · Ctrl + scroll or + / − buttons to zoom</span>
+          <span>Use mouse wheel or trackpad to scroll naturally through diagram</span>
           <span className="mm-footer-hint">Press Esc to exit</span>
         </div>
       </div>
