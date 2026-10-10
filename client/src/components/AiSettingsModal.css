@@ -114,9 +114,6 @@
   background: #f0f7ff;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
 }
-.ai-provider-card.is-featured {
-  grid-column: span 2;
-}
 
 .ai-card-top {
   display: flex;

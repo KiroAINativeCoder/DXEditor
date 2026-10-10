@@ -67,7 +67,7 @@ export default function AiSettingsModal({ isOpen, onClose, onSaved }: Props) {
               return (
                 <div
                   key={pKey}
-                  className={`ai-provider-card ${isSelected ? 'is-selected' : ''} ${pKey === 'openrouter' ? 'is-featured' : ''} ${p.disabled ? 'is-disabled' : ''}`}
+                  className={`ai-provider-card ${isSelected ? 'is-selected' : ''} ${p.disabled ? 'is-disabled' : ''}`}
                   onClick={() => handleProviderSelect(pKey)}
                 >
                   <div className="ai-card-top">
