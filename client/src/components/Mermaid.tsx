@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import mermaid from 'mermaid'
 import './Mermaid.css'
 
-export type MermaidSize = 'small' | 'medium' | 'large' | 'full'
+export type MermaidSize = 'small' | 'medium'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -207,38 +207,21 @@ function MermaidView({ node, updateAttributes, editor }: NodeViewProps) {
           <div className="mermaid-top-toolbar">
             {canEdit && (
               <div className="mermaid-size-switcher" title="Diagram display size">
-                <span className="mermaid-size-label">Size:</span>
                 <button
                   type="button"
                   className={`mermaid-size-btn ${size === 'small' ? 'is-active' : ''}`}
                   onClick={() => updateAttributes({ size: 'small' })}
-                  title="Small (compact width)"
+                  title="Small (compact)"
                 >
-                  S
+                  Small
                 </button>
                 <button
                   type="button"
                   className={`mermaid-size-btn ${size === 'medium' ? 'is-active' : ''}`}
                   onClick={() => updateAttributes({ size: 'medium' })}
-                  title="Medium (balanced width)"
+                  title="Medium (standard)"
                 >
-                  M
-                </button>
-                <button
-                  type="button"
-                  className={`mermaid-size-btn ${size === 'large' ? 'is-active' : ''}`}
-                  onClick={() => updateAttributes({ size: 'large' })}
-                  title="Large (fit page width)"
-                >
-                  L
-                </button>
-                <button
-                  type="button"
-                  className={`mermaid-size-btn ${size === 'full' ? 'is-active' : ''}`}
-                  onClick={() => updateAttributes({ size: 'full' })}
-                  title="Full width (expanded)"
-                >
-                  Full
+                  Medium
                 </button>
               </div>
             )}

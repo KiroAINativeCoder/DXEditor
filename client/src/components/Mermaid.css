@@ -86,20 +86,11 @@
 }
 
 .mermaid-preview.size-small .mermaid-svg {
-  max-width: 420px;
+  max-width: 380px;
 }
 
 .mermaid-preview.size-medium .mermaid-svg {
-  max-width: 640px;
-}
-
-.mermaid-preview.size-large .mermaid-svg {
-  max-width: 100%;
-}
-
-.mermaid-preview.size-full .mermaid-svg {
-  max-width: 100%;
-  width: 100%;
+  max-width: 620px;
 }
 
 /* Crucial: Override Mermaid's inline style="max-width: ...px" on generated SVG */

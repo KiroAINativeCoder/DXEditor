@@ -115,11 +115,22 @@ export default function MermaidModal({ svg: initialSvg, source, onClose }: Props
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
 
-  // Mouse wheel zoom
+  // Wheel handler:
+  // Only zoom when Ctrl or Meta (Cmd) is held (or trackpad pinch).
+  // Normal wheel scroll pans up/down/left/right so the user can scroll through the diagram without it resizing!
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
-    const delta = e.deltaY > 0 ? -15 : 15
-    setZoom((z) => Math.min(300, Math.max(40, z + delta)))
+    if (e.ctrlKey || e.metaKey) {
+      // Intentional zoom
+      const delta = e.deltaY > 0 ? -10 : 10
+      setZoom((z) => Math.min(300, Math.max(40, z + delta)))
+    } else {
+      // Normal scroll pans smoothly without changing diagram size
+      setPan((p) => ({
+        x: p.x - (e.shiftKey ? e.deltaY : (e.deltaX || 0)),
+        y: p.y - (e.shiftKey ? 0 : e.deltaY),
+      }))
+    }
   }, [])
 
   // Drag to pan
@@ -268,7 +279,7 @@ export default function MermaidModal({ svg: initialSvg, source, onClose }: Props
 
         {/* Footer Hint */}
         <div className="mermaid-modal-footer">
-          <span>Scroll wheel to zoom · Drag to pan · Double-click or click % to reset</span>
+          <span>Scroll wheel / trackpad to pan · Ctrl + scroll or + / − buttons to zoom</span>
           <span className="mm-footer-hint">Press Esc to exit</span>
         </div>
       </div>
